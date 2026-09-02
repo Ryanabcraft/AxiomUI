@@ -1,0 +1,15 @@
+# Packages
+_packages/
+*.rbxl
+*.rbxlx
+# Build
+*.map
+# OS
+.DS_Store
+Thumbs.db
+# IDE
+.vscode/
+.idea/
+# Logs
+*.log
+*.tmp

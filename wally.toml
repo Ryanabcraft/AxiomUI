@@ -1,0 +1,16 @@
+[package]
+name = "ryanabcraft/axiom"
+version = "1.0.0"
+description = "Desktop-grade interface framework for Roblox Luau — acrylic, motion-first, reactive state"
+authors = ["Axiom Contributors"]
+license = "MIT"
+realm = "shared"
+registry = "https://github.com/UpliftGames/wally-index"
+include = ["**/*.lua", "LICENSE", "README.md"]
+
+[dependencies]
+
+[place]
+shared-packages = "ReplicatedStorage.Packages"
+server-packages = "ServerScriptService.Packages"
+dev-dependencies = []
