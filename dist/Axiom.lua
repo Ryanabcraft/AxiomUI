@@ -635,6 +635,9 @@ local MOBILE_MIN_RENDER_SCALE=0.85
 local TWEEN_MINIMIZE=0.22
 local TWEEN_RESTORE=0.26
 local TWEEN_MAXIMIZE=0.30
+local TWEEN_HIDE=0.22
+local TWEEN_SHOW=0.24
+local TWEEN_PILL=0.22
 local Z_INDEX={
     Background=1,
     Body=5,
@@ -647,6 +650,7 @@ local Z_INDEX={
     Tooltip=110,
     Popup=120,
     Modal=150,
+    Reopen=180,
 }
 
 local function getViewportSize()
@@ -714,6 +718,8 @@ local function getResponsiveMetrics(userScale,referenceSize)
         Mode=mode,
         PureTouch=pureTouch,
         Portrait=viewport.Y>=viewport.X,
+        ViewportSize=viewport,
+        SafeTop=math.max(topLeft.Y,safeMin.Y),
         Margin=margin,
         Left=left,
         Top=top,
@@ -727,6 +733,20 @@ local function getResponsiveMetrics(userScale,referenceSize)
         CenterPosition=UDim2.fromOffset(math.round(left+availableWidth/2),math.round(top+availableHeight/2)),
         MaximizedSize=UDim2.fromOffset(math.round(availableWidth/finalScale),math.round(availableHeight/finalScale)),
     }
+end
+
+local function getReopenPillLayout(metrics)
+    local width=metrics.Mode=="Desktop" and 118 or (metrics.Mode=="Tablet" and 112 or 108)
+    local height=metrics.Mode=="Mobile" and 38 or 36
+    local topGap=metrics.Mode=="Desktop" and 14 or (metrics.Mode=="Tablet" and 12 or 10)
+    local minX=metrics.Left+width/2
+    local maxX=metrics.Right-width/2
+    local centerX=minX<=maxX and math.clamp((metrics.Left+metrics.Right)/2,minX,maxX) or metrics.ViewportSize.X/2
+    local maxY=math.max(metrics.SafeTop,metrics.Bottom-height)
+    return UDim2.fromOffset(width,height),UDim2.fromOffset(
+        math.round(centerX),
+        math.round(math.clamp(metrics.SafeTop+topGap,metrics.SafeTop,maxY))
+    )
 end
 
 local function makeDraggable(window, frame, handle)
@@ -831,11 +851,13 @@ function Window.new(context,options)
         _HasCustomPosition=false,
         _PreferredSize=nil,
         _PreferredPosition=nil,
-        Minimized=false,Maximized=false,
+        ReopenPillEnabled=options.ReopenPill~=false,
+        Hidden=false,Minimized=false,Maximized=false,
         _Cleanup=Cleanup.new(),
         _TransitionId=0,
+        _VisibilityTransitionId=0,
         _IsDestroyed=false,
-        _WindowState={Minimized=false,Maximized=false,PreviousSize=nil,PreviousPosition=nil,PreMinimizeMaximized=nil,MinimizedPosition=nil,MinimizeDeltaY=0,IsAnimating=false}
+        _WindowState={Hidden=false,VisibilityAnimating=false,Minimized=false,Maximized=false,PreviousSize=nil,PreviousPosition=nil,PreMinimizeMaximized=nil,MinimizedPosition=nil,MinimizeDeltaY=0,IsAnimating=false}
     },Window)
     local t=context.Theme.Current
 
@@ -854,9 +876,10 @@ function Window.new(context,options)
     local localBlur=options.Blur==true
     local acrylic=options.Acrylic~=false
     local visualTransparency=acrylic and math.min(0.22,t.AcrylicTransparency+0.04+(localBlur and 0.03 or 0)) or 0
-    local windowClip=Utility.Create("Frame",{
+    local windowClip=Utility.Create("CanvasGroup",{
         Name="WindowClip",Size=UDim2.fromScale(1,1),BackgroundColor3=t.Background,
-        BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=true,ZIndex=Z_INDEX.Background,Parent=root
+        BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=true,GroupTransparency=0,
+        ZIndex=Z_INDEX.Background,Parent=root
     })
     Utility.Corner(windowClip,UDim.new(0,WINDOW_RADIUS))
     local windowStroke=Utility.Stroke(windowClip,t.Stroke,0.52)
@@ -906,6 +929,40 @@ function Window.new(context,options)
     local popupLayer=Utility.Create("Frame",{Name="Popups",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=false,Active=false,ZIndex=Z_INDEX.Popup,Parent=overlayLayer})
     local modalLayer=Utility.Create("Frame",{Name="Modals",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=false,Active=false,ZIndex=Z_INDEX.Modal,Parent=overlayLayer})
 
+    local pillSize,pillPosition=getReopenPillLayout(initialMetrics)
+    local reopenPill=Utility.Create("CanvasGroup",{
+        Name="ReopenPill",AnchorPoint=Vector2.new(0.5,0),Position=pillPosition,
+        Size=UDim2.fromOffset(0,pillSize.Y.Offset),BackgroundColor3=t.SurfaceAlt,BackgroundTransparency=0.1,
+        BorderSizePixel=0,ClipsDescendants=true,GroupTransparency=1,Visible=false,
+        ZIndex=Z_INDEX.Reopen,Parent=context.Gui,
+    })
+    Utility.Corner(reopenPill,UDim.new(1,0))
+    local reopenStroke=Utility.Stroke(reopenPill,t.Stroke,0.48)
+    context.Theme:Bind(reopenPill,"BackgroundColor3","SurfaceAlt")
+    context.Theme:Bind(reopenStroke,"Color","Stroke")
+    local reopenIcon=Utility.Create("Frame",{
+        Position=UDim2.fromOffset(9,8),Size=UDim2.fromOffset(20,20),BackgroundColor3=t.Primary,
+        BorderSizePixel=0,ZIndex=Z_INDEX.Reopen+1,Parent=reopenPill,
+    })
+    Utility.Corner(reopenIcon,UDim.new(0,7))
+    Utility.Create("UIGradient",{Color=ColorSequence.new(t.Primary,t.Secondary),Rotation=45,Parent=reopenIcon})
+    Utility.Create("TextLabel",{
+        Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Font=Enum.Font.GothamBold,Text="◆",
+        TextColor3=Color3.new(1,1,1),TextSize=9,ZIndex=Z_INDEX.Reopen+2,Parent=reopenIcon,
+    })
+    local reopenLabel=Utility.Create("TextLabel",{
+        Position=UDim2.fromOffset(38,0),Size=UDim2.new(1,-46,1,0),BackgroundTransparency=1,
+        Font=Enum.Font.GothamBold,Text=string.upper(options.Title or "AXIOM"),TextColor3=t.Text,TextSize=11,
+        TextTruncate=Enum.TextTruncate.AtEnd,
+        TextXAlignment=Enum.TextXAlignment.Left,ZIndex=Z_INDEX.Reopen+1,Parent=reopenPill,
+    })
+    context.Theme:Bind(reopenLabel,"TextColor3","Text")
+    local reopenButton=Utility.Create("TextButton",{
+        Name="OpenWindow",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
+        AutoButtonColor=false,Text="",ZIndex=Z_INDEX.Reopen+3,Parent=reopenPill,
+    })
+    self._Cleanup:Add(reopenButton.Activated:Connect(function() self:Show() end))
+
     self.Root=root
     self.UIScale=scale
     self.WindowStroke=windowStroke
@@ -921,6 +978,12 @@ function Window.new(context,options)
     self.TooltipLayer=tooltipLayer
     self.PopupLayer=popupLayer
     self.ModalLayer=modalLayer
+    self.ReopenPill=reopenPill
+    self.ReopenPillButton=reopenButton
+    self.ReopenPillStroke=reopenStroke
+    self._ReopenPillSize=pillSize
+    self._VisualTransparency=visualTransparency
+    self._WindowStrokeTransparency=0.52
     self.OriginalSize=root.Size
     self.OriginalPosition=root.Position
     self._WindowState.PreviousSize=root.Size
@@ -1015,6 +1078,27 @@ function Window:_Delay(seconds,callback)
     return thread
 end
 
+function Window:_VisibilityDelay(seconds,callback)
+    if self._VisibilityThread then
+        pcall(task.cancel,self._VisibilityThread)
+        self._VisibilityThread=nil
+    end
+    local thread
+    thread=task.delay(seconds,function()
+        if self._VisibilityThread==thread then self._VisibilityThread=nil end
+        if not self._IsDestroyed then callback() end
+    end)
+    self._VisibilityThread=thread
+    return thread
+end
+
+function Window:_FinishVisibilityTransition()
+    self._WindowState.VisibilityAnimating=false
+    local pending=self._PendingVisibilityAction
+    self._PendingVisibilityAction=nil
+    if pending=="Destroy" then self:_ClosePermanently() end
+end
+
 function Window:_CommitScale()
     if not self.UIScale then return end
     Animation.Cancel(self.UIScale)
@@ -1046,6 +1130,16 @@ function Window:_UpdateColumnGroups()
     end
 end
 
+function Window:_UpdateReopenPill(metrics)
+    if not self.ReopenPill or not self.ReopenPill.Parent then return end
+    local size,position=getReopenPillLayout(metrics)
+    self._ReopenPillSize=size
+    self.ReopenPill.Position=position
+    if self.ReopenPill.Visible and not self._WindowState.VisibilityAnimating then
+        self.ReopenPill.Size=size
+    end
+end
+
 function Window:_UpdateDeviceLayout(metrics,logicalSize)
     self.DeviceMode=metrics.Mode
     self._ResponsiveMetrics=metrics
@@ -1069,6 +1163,7 @@ function Window:_UpdateDeviceLayout(metrics,logicalSize)
     self.TabList.Size=UDim2.new(1,-tabInset*2,1,-36)
     self.Content.Position=UDim2.fromOffset(contentX,22)
     self.Content.Size=UDim2.new(1,-contentX-rightPadding,1,-44)
+    self:_UpdateReopenPill(metrics)
     for _,tab in ipairs(self.Tabs) do
         if tab.Button then tab.Button.Size=UDim2.fromOffset(tabSize,metrics.Mode=="Mobile" and 48 or 52) end
         if metrics.PureTouch and tab._HideTooltip then tab._HideTooltip(true) end
@@ -1367,13 +1462,107 @@ function Window:Maximize()
     end
 end
 
-function Window:Close()
+function Window:_HideTransientLayers()
+    for _,tab in ipairs(self.Tabs) do
+        if tab._HideTooltip then tab._HideTooltip(true) end
+    end
+    self.OverlayLayer.Visible=false
+end
+
+function Window:Hide()
+    if self._IsDestroyed or self._WindowState.Hidden or self._WindowState.VisibilityAnimating then return end
+    self._VisibilityTransitionId+=1
+    local token=self._VisibilityTransitionId
+    self._WindowState.Hidden=true
+    self._WindowState.VisibilityAnimating=true
+    self.Hidden=true
+    self:_HideTransientLayers()
+    self:_CommitScale()
+    Animation.Tween(self.WindowClip,{BackgroundTransparency=1,GroupTransparency=1},TWEEN_HIDE)
+    Animation.Tween(self.WindowStroke,{Transparency=1},TWEEN_HIDE)
+    Animation.Tween(self.UIScale,{Scale=self.Scale*0.96},TWEEN_HIDE)
+    self:_VisibilityDelay(TWEEN_HIDE,function()
+        if token~=self._VisibilityTransitionId then return end
+        self.Root.Visible=false
+        if not self.ReopenPillEnabled or not self.ReopenPill or not self.ReopenPill.Parent then
+            self:_FinishVisibilityTransition()
+            return
+        end
+        self.ReopenPill.Visible=true
+        self.ReopenPill.Size=UDim2.fromOffset(0,self._ReopenPillSize.Y.Offset)
+        self.ReopenPill.GroupTransparency=1
+        self.ReopenPill.BackgroundTransparency=0.1
+        Animation.Tween(self.ReopenPill,{Size=self._ReopenPillSize,GroupTransparency=0},TWEEN_PILL)
+        self:_VisibilityDelay(TWEEN_PILL,function()
+            if token~=self._VisibilityTransitionId then return end
+            self.ReopenPill.Size=self._ReopenPillSize
+            self.ReopenPill.GroupTransparency=0
+            self:_FinishVisibilityTransition()
+        end)
+    end)
+end
+
+function Window:Show()
+    if self._IsDestroyed or not self._WindowState.Hidden or self._WindowState.VisibilityAnimating then return end
+    self._VisibilityTransitionId+=1
+    local token=self._VisibilityTransitionId
+    self._WindowState.VisibilityAnimating=true
+    local function revealWindow()
+        if token~=self._VisibilityTransitionId then return end
+        self.ReopenPill.Visible=false
+        self.ReopenPill.Size=UDim2.fromOffset(0,self._ReopenPillSize.Y.Offset)
+        self.ReopenPill.GroupTransparency=1
+        self.ReopenPill.BackgroundTransparency=0.1
+        self.Root.Visible=true
+        self.OverlayLayer.Visible=true
+        self.UIScale.Scale=self.Scale*0.96
+        self.WindowClip.BackgroundTransparency=1
+        self.WindowClip.GroupTransparency=1
+        self.WindowStroke.Transparency=1
+        Animation.Tween(self.UIScale,{Scale=self.Scale},TWEEN_SHOW)
+        Animation.Tween(self.WindowClip,{BackgroundTransparency=self._VisualTransparency,GroupTransparency=0},TWEEN_SHOW)
+        Animation.Tween(self.WindowStroke,{Transparency=self._WindowStrokeTransparency},TWEEN_SHOW)
+        self:_VisibilityDelay(TWEEN_SHOW,function()
+            if token~=self._VisibilityTransitionId then return end
+            self.UIScale.Scale=self.Scale
+            self.WindowClip.BackgroundTransparency=self._VisualTransparency
+            self.WindowClip.GroupTransparency=0
+            self.WindowStroke.Transparency=self._WindowStrokeTransparency
+            self._WindowState.Hidden=false
+            self.Hidden=false
+            self:_FinishVisibilityTransition()
+        end)
+    end
+    if self.ReopenPill and self.ReopenPill.Visible then
+        Animation.Tween(self.ReopenPill,{Size=UDim2.fromOffset(0,self._ReopenPillSize.Y.Offset),GroupTransparency=1},TWEEN_PILL)
+        self:_VisibilityDelay(TWEEN_PILL,revealWindow)
+    else
+        revealWindow()
+    end
+end
+
+function Window:ToggleVisibility()
+    if self._IsDestroyed or self._WindowState.VisibilityAnimating then return end
+    if self._WindowState.Hidden then self:Show() else self:Hide() end
+end
+
+function Window:_ClosePermanently()
     if self._IsDestroyed then return end
-    self._TransitionId+=1
-    Animation.Tween(self.WindowClip,{BackgroundTransparency=1},0.20)
-    Animation.Tween(self.WindowStroke,{Transparency=1},0.20)
-    Animation.Tween(self.UIScale,{Scale=self.Scale*0.94},0.24)
-    self:_Delay(0.25,function() self:Destroy() end)
+    if self._WindowState.VisibilityAnimating then
+        self._PendingVisibilityAction="Destroy"
+        return
+    end
+    self._WindowState.VisibilityAnimating=true
+    self:_HideTransientLayers()
+    self:_CommitScale()
+    Animation.Tween(self.WindowClip,{BackgroundTransparency=1,GroupTransparency=1},TWEEN_HIDE)
+    Animation.Tween(self.WindowStroke,{Transparency=1},TWEEN_HIDE)
+    Animation.Tween(self.UIScale,{Scale=self.Scale*0.96},TWEEN_HIDE)
+    self:_VisibilityDelay(TWEEN_HIDE,function() self:Destroy() end)
+end
+
+function Window:Close()
+    if self.ReopenPillEnabled then self:Hide() else self:_ClosePermanently() end
 end
 
 function Window:SetTheme(theme) if not self._IsDestroyed then self.Context.Theme:Apply(theme) end end
@@ -1382,13 +1571,21 @@ function Window:Destroy()
     if self._IsDestroyed then return end
     self._IsDestroyed=true
     self._TransitionId+=1
+    self._VisibilityTransitionId+=1
     local context=self.Context
     local root=self.Root
+    local reopenPill=self.ReopenPill
+    if self._VisibilityThread then
+        pcall(task.cancel,self._VisibilityThread)
+        self._VisibilityThread=nil
+    end
     self._Cleanup:Destroy()
     Animation.Cancel(self.Body)
     Animation.Cancel(self.WindowClip)
     Animation.Cancel(self.WindowStroke)
+    if reopenPill then Animation.Cancel(reopenPill) end
     Animation.Cancel(root)
+    if reopenPill then pcall(function() reopenPill:Destroy() end) end
     if root then pcall(function() root:Destroy() end) end
     if context and context.Windows then
         for i,w in ipairs(context.Windows) do
@@ -1424,6 +1621,9 @@ function Window:Destroy()
     self.SubtitleLabel=nil
     self.WindowClip=nil
     self.WindowStroke=nil
+    self.ReopenPill=nil
+    self.ReopenPillButton=nil
+    self.ReopenPillStroke=nil
     self.Root=nil
     self.Context=nil
     self.ReferenceSize=nil
@@ -1433,6 +1633,13 @@ function Window:Destroy()
     self._HasCustomPosition=nil
     self._PreferredSize=nil
     self._PreferredPosition=nil
+    self._ReopenPillSize=nil
+    self._VisualTransparency=nil
+    self._WindowStrokeTransparency=nil
+    self._VisibilityThread=nil
+    self._PendingVisibilityAction=nil
+    self.Hidden=nil
+    self.ReopenPillEnabled=nil
     self._Cleanup=nil
     self._WindowState=nil
 end

@@ -4,7 +4,7 @@
 
 ### `Axiom:CreateWindow(options)`
 
-Creates a responsive desktop-style window. Options: `Title`, `Subtitle`, `Theme`, `Size`, `Scale`, `Acrylic`, and `Blur`. The default reference size is `500x475`, and Axiom automatically fits it to the viewport and safe area across desktop, tablet, mobile portrait, and mobile landscape. `Scale` is an optional user multiplier: `1` is the responsive default, `0.9` is 10% smaller, and `1.1` is 10% larger when the viewport has room. User scale is clamped from `0.75` to `1.25`. `Acrylic` controls the window surface transparency. `Blur` adds depth to that local surface only; it never creates or changes a `BlurEffect`, `Lighting`, or `CurrentCamera` object.
+Creates a responsive desktop-style window. Options: `Title`, `Subtitle`, `Theme`, `Size`, `Scale`, `Acrylic`, `Blur`, and `ReopenPill`. The default reference size is `500x475`, and Axiom automatically fits it to the viewport and safe area across desktop, tablet, mobile portrait, and mobile landscape. `Scale` is an optional user multiplier: `1` is the responsive default, `0.9` is 10% smaller, and `1.1` is 10% larger when the viewport has room. User scale is clamped from `0.75` to `1.25`. `Acrylic` controls the window surface transparency. `Blur` adds depth to that local surface only; it never creates or changes a `BlurEffect`, `Lighting`, or `CurrentCamera` object. `ReopenPill` defaults to `true`; closing hides the window and displays a safe-area-aware pill that restores the same window state. Set it to `false` to make the X button close and destroy the window after its exit animation.
 
 ### `Axiom:SetTheme(theme)`
 
@@ -29,9 +29,12 @@ Removes all Axiom UI, listeners, pending tasks, and active animations.
 | `AddTab(options)` | Adds a sidebar tab and returns a Tab. |
 | `SelectTab(tab)` | Activates a tab. |
 | `Minimize()` | Toggles compact mode. |
-| `Close()` | Closes with animation. |
+| `Hide()` | Hides the complete window and displays the reopen pill when enabled. |
+| `Show()` | Hides the reopen pill and restores the same window instance. |
+| `ToggleVisibility()` | Alternates between `Hide()` and `Show()`. |
+| `Close()` | Calls `Hide()` when `ReopenPill` is enabled; otherwise closes and destroys after the exit animation. |
 | `SetTheme(theme)` | Applies a theme to bound properties. |
-| `Destroy()` | Immediately destroys the window. |
+| `Destroy()` | Immediately and permanently destroys the window, reopen pill, listeners, and state. |
 
 ## Tab and controls
 
