@@ -60,4 +60,9 @@ undocumented=[name for name in official if f"`{name}`" not in icon_docs]
 assert not undocumented,"Undocumented icons: " + ", ".join(undocumented)
 
 bundle_size=(ROOT/"dist"/"Axiom.lua").stat().st_size
+byte_claims=re.findall(r"(\d{1,3}(?:[.,]\d{3})+)\s*bytes",public_text)
+assert byte_claims,"Missing public bundle size"
+for claim in byte_claims:
+    stated_size=int(re.sub(r"[.,]","",claim))
+    assert stated_size==bundle_size,f"Stale bundle size: {claim} bytes"
 print(f"Public validation passed: {len(official)} icons, {bundle_size} byte bundle")

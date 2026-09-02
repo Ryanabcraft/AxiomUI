@@ -25,8 +25,8 @@ def transform(current: str, source: str) -> str:
 chunks=["-- AXIOM UI ENGINE · generated distribution\nlocal __modules,__cache={},{}\nlocal function __require(id)\n if __cache[id]~=nil then return __cache[id] end\n local factory=assert(__modules[id],\"Missing Axiom module: \"..id)\n local value=factory()\n __cache[id]=value\n return value\nend\n"]
 for path in sorted(MODULES,key=lambda p:(module_id(p)=="init",module_id(p))):
     mid=module_id(path)
-    chunks.append(f'__modules["{mid}"]=function()\n{transform(mid,path.read_text())}\nend\n')
+    chunks.append(f'__modules["{mid}"]=function()\n{transform(mid,path.read_text(encoding="utf-8"))}\nend\n')
 chunks.append('return __require("init")\n')
 OUT.parent.mkdir(exist_ok=True)
-OUT.write_text("\n".join(chunks))
+OUT.write_text("\n".join(chunks),encoding="utf-8")
 print(f"Built {OUT} ({OUT.stat().st_size} bytes, {len(MODULES)} modules)")

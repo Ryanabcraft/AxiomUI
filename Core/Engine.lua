@@ -10,7 +10,7 @@ local Dark=require(script.Parent.Parent.Themes.Dark)
 local Light=require(script.Parent.Parent.Themes.Light)
 local Custom=require(script.Parent.Parent.Themes.Custom)
 
-local Engine={Version="1.0.2",Themes={Dark=Dark,Light=Light},Windows={}}
+local Engine={Version="1.0.3",Themes={Dark=Dark,Light=Light},Windows={}}
 Engine.__index=Engine
 
 local function resolveParent()
