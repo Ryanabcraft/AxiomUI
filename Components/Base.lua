@@ -1,5 +1,10 @@
 local Utility = require(script.Parent.Parent.Services.Utility)
+local Cleanup = require(script.Parent.Parent.Services.Cleanup)
 local Base = {}
+
+function Base.Cleanup()
+    return Cleanup.new()
+end
 
 function Base.Row(context, parent, options, height)
     local theme = context.Theme.Current
@@ -22,12 +27,31 @@ function Base.Row(context, parent, options, height)
     return row, label
 end
 
-function Base.Handle(root, state)
-    local handle = { Instance = root, Changed = state and state.Changed or nil }
-    function handle:Get() return state and state:Get() end
-    function handle:Set(value) if state then state:Set(value) end end
-    function handle:SetVisible(visible) root.Visible = visible end
-    function handle:Destroy() if state then state:Destroy() end root:Destroy() end
+function Base.Handle(root, state, cleanup)
+    cleanup=cleanup or Cleanup.new()
+    local handle={Instance=root,Changed=state and state.Changed or nil,_cleanup=cleanup,_destroyed=false,_destroyCallbacks={}}
+    local function finalize()
+        if handle._destroyed then return end
+        handle._destroyed=true
+        for _,callback in ipairs(handle._destroyCallbacks) do pcall(callback) end
+        table.clear(handle._destroyCallbacks)
+        cleanup:Destroy()
+        if state then state:Destroy() end
+        handle.Changed=nil
+        handle.Instance=nil
+    end
+    cleanup:Add(root.Destroying:Connect(finalize))
+    function handle:Get() if not self._destroyed and state then return state:Get() end end
+    function handle:Set(value) if not self._destroyed and state then state:Set(value) end end
+    function handle:SetVisible(visible) if not self._destroyed and root.Parent then root.Visible=visible end end
+    function handle:_OnDestroy(callback)
+        if self._destroyed then pcall(callback) else table.insert(self._destroyCallbacks,callback) end
+    end
+    function handle:Destroy()
+        if self._destroyed then return end
+        finalize()
+        pcall(function() root:Destroy() end)
+    end
     return handle
 end
 

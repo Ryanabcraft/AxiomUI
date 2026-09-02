@@ -14,7 +14,7 @@ end
 function Utility.Stroke(parent, color, transparency, thickness)
     return Utility.Create("UIStroke", {
         Color = color, Transparency = transparency or 0, Thickness = thickness or 1,
-        ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = parent,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border, LineJoinMode = Enum.LineJoinMode.Round, Parent = parent,
     })
 end
 

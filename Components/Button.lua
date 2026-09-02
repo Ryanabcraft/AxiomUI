@@ -4,6 +4,7 @@ local Base = require(script.Parent.Base)
 
 return function(context, parent, options)
     options = options or {}
+    local cleanup=Base.Cleanup()
     local theme = context.Theme.Current
     local button = Utility.Create("TextButton", {
         Name = options.Name or "Button", Size = UDim2.new(1, 0, 0, 44), AutoButtonColor = false,
@@ -16,11 +17,13 @@ return function(context, parent, options)
     context.Theme:Bind(button, "BackgroundColor3", "SurfaceAlt")
     context.Theme:Bind(button, "TextColor3", "Text")
     context.Theme:Bind(stroke, "Color", "Stroke")
-    button.MouseEnter:Connect(function() Animation.Tween(button, { BackgroundColor3 = context.Theme.Current.SurfaceHover }) end)
-    button.MouseLeave:Connect(function() Animation.Tween(button, { BackgroundColor3 = context.Theme.Current.SurfaceAlt }) end)
-    button.Activated:Connect(function()
-        Animation.Ripple(button, theme.Primary)
+    cleanup:Add(button.MouseEnter:Connect(function() Animation.Tween(button, { BackgroundColor3 = context.Theme.Current.SurfaceHover }) end))
+    cleanup:Add(button.MouseLeave:Connect(function() Animation.Tween(button, { BackgroundColor3 = context.Theme.Current.SurfaceAlt }) end))
+    cleanup:Add(button.Activated:Connect(function()
+        if not cleanup:IsAlive() then return end
+        Animation.Ripple(button,theme.Primary,cleanup)
         Utility.SafeCallback(options.Callback)
-    end)
-    return Base.Handle(button)
+    end))
+    cleanup:Add(function() Animation.Cancel(button) end)
+    return Base.Handle(button,nil,cleanup)
 end

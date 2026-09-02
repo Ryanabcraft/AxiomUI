@@ -6,6 +6,7 @@ local Base=require(script.Parent.Base)
 
 return function(context,parent,options)
     options=options or {}
+    local cleanup=Base.Cleanup()
     local state=State.new(options.Default or context.Theme.Current.Primary)
     local h,s,v=state:Get():ToHSV()
     local row=Base.Row(context,parent,options,62)
@@ -30,21 +31,22 @@ return function(context,parent,options)
     local function toHex(c) return string.format("#%02X%02X%02X",math.round(c.R*255),math.round(c.G*255),math.round(c.B*255)) end
     local function fromHex(value) local text=value:gsub("#",""); if #text~=6 then return nil end; local n=tonumber(text,16); if not n then return nil end; return Color3.fromRGB(bit32.rshift(n,16),bit32.band(bit32.rshift(n,8),255),bit32.band(n,255)) end
     local function applyHSV() state:Set(Color3.fromHSV(h,s,v)) end
-    local function updateSV(input) s=math.clamp((input.Position.X-sv.AbsolutePosition.X)/sv.AbsoluteSize.X,0,1); v=1-math.clamp((input.Position.Y-sv.AbsolutePosition.Y)/sv.AbsoluteSize.Y,0,1); applyHSV() end
-    local function updateHue(input) h=math.clamp((input.Position.Y-hue.AbsolutePosition.Y)/hue.AbsoluteSize.Y,0,1); applyHSV() end
-    sv.InputBegan:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then draggingSV=true; updateSV(input) end end)
-    hue.InputBegan:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then draggingHue=true; updateHue(input) end end)
-    UserInputService.InputChanged:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch then if draggingSV then updateSV(input) elseif draggingHue then updateHue(input) end end end)
-    UserInputService.InputEnded:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then draggingSV=false; draggingHue=false end end)
-    preview.Activated:Connect(function() open=not open; Animation.Tween(row,{Size=UDim2.new(1,0,0,open and 224 or 62)},0.28) end)
-    hex.FocusLost:Connect(function() local color=fromHex(hex.Text); if color then state:Set(color) else hex.Text=toHex(state:Get()) end end)
+    local function updateSV(input) if not cleanup:IsAlive() or sv.AbsoluteSize.X<=0 or sv.AbsoluteSize.Y<=0 then return end; s=math.clamp((input.Position.X-sv.AbsolutePosition.X)/sv.AbsoluteSize.X,0,1); v=1-math.clamp((input.Position.Y-sv.AbsolutePosition.Y)/sv.AbsoluteSize.Y,0,1); applyHSV() end
+    local function updateHue(input) if not cleanup:IsAlive() or hue.AbsoluteSize.Y<=0 then return end; h=math.clamp((input.Position.Y-hue.AbsolutePosition.Y)/hue.AbsoluteSize.Y,0,1); applyHSV() end
+    cleanup:Add(sv.InputBegan:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then draggingSV=true; updateSV(input) end end))
+    cleanup:Add(hue.InputBegan:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then draggingHue=true; updateHue(input) end end))
+    cleanup:Add(UserInputService.InputChanged:Connect(function(input) if cleanup:IsAlive() and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then if draggingSV then updateSV(input) elseif draggingHue then updateHue(input) end end end))
+    cleanup:Add(UserInputService.InputEnded:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then draggingSV=false; draggingHue=false end end))
+    cleanup:Add(preview.Activated:Connect(function() if cleanup:IsAlive() then open=not open; Animation.Tween(row,{Size=UDim2.new(1,0,0,open and 224 or 62)},0.28) end end))
+    cleanup:Add(hex.FocusLost:Connect(function() if not cleanup:IsAlive() then return end; local color=fromHex(hex.Text); if color then state:Set(color) else hex.Text=toHex(state:Get()) end end))
     local function render(color,fireCallback)
         h,s,v=color:ToHSV(); preview.BackgroundColor3=color; hex.Text=toHex(color); sv.BackgroundColor3=Color3.fromHSV(h,1,1)
         cursor.Position=UDim2.fromScale(s,1-v); hueCursor.Position=UDim2.fromScale(0.5,h)
         rgb.Text=string.format("RGB  %d  %d  %d",math.round(color.R*255),math.round(color.G*255),math.round(color.B*255))
         if fireCallback then Utility.SafeCallback(options.Callback,color,toHex(color)) end
     end
-    state.Changed:Connect(function(color) render(color,true) end)
+    cleanup:Add(state.Changed:Connect(function(color) if cleanup:IsAlive() then render(color,true) end end))
+    cleanup:Add(function() draggingSV=false; draggingHue=false; open=false; Animation.Cancel(row) end)
     render(state:Get(),false)
-    return Base.Handle(row,state)
+    return Base.Handle(row,state,cleanup)
 end

@@ -13,7 +13,8 @@ function Signal:Connect(callback)
     function connection:Disconnect()
         if not self.Connected then return end
         self.Connected = false
-        connection._owner._listeners[self] = nil
+        if connection._owner then connection._owner._listeners[self] = nil end
+        connection._owner = nil
     end
     connection._owner = self
     return connection
@@ -23,14 +24,16 @@ function Signal:Fire(...)
     if self._destroyed then return end
     for connection, callback in pairs(self._listeners) do
         if connection.Connected then
-            task.spawn(callback, ...)
+            task.spawn(function(...)
+                if connection.Connected and not self._destroyed then callback(...) end
+            end, ...)
         end
     end
 end
 
 function Signal:Destroy()
     self._destroyed = true
-    for connection in pairs(self._listeners) do connection.Connected = false end
+    for connection in pairs(self._listeners) do connection.Connected = false; connection._owner=nil end
     table.clear(self._listeners)
 end
 

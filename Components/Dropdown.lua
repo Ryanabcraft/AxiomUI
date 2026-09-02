@@ -5,6 +5,7 @@ local Base = require(script.Parent.Base)
 
 return function(context, parent, options)
     options = options or {}
+    local cleanup=Base.Cleanup()
     local values = options.Options or {}
     local multi = options.Multi == true
     local initial = options.Default or (multi and {} or values[1])
@@ -35,12 +36,14 @@ return function(context, parent, options)
     for _,value in ipairs(values) do
         local item=Utility.Create("TextButton",{Size=UDim2.new(1,0,0,32),BackgroundColor3=context.Theme.Current.SurfaceHover,BackgroundTransparency=0.18,BorderSizePixel=0,AutoButtonColor=false,Font=Enum.Font.Gotham,Text=tostring(value),TextColor3=context.Theme.Current.Text,TextSize=12,Parent=list})
         Utility.Corner(item,UDim.new(0,7))
-        item.Activated:Connect(function()
+        cleanup:Add(item.Activated:Connect(function()
+            if not cleanup:IsAlive() then return end
             if multi then local nextValue=table.clone(state:Get()); nextValue[value]=not nextValue[value]; state:Set(nextValue) else state:Set(value); setOpen(false) end
-        end)
+        end))
     end
-    selector.Activated:Connect(function() setOpen(not open) end)
-    state.Changed:Connect(function(value) display(value); Utility.SafeCallback(options.Callback,value) end)
+    cleanup:Add(selector.Activated:Connect(function() if cleanup:IsAlive() then setOpen(not open) end end))
+    cleanup:Add(state.Changed:Connect(function(value) if cleanup:IsAlive() then display(value); Utility.SafeCallback(options.Callback,value) end end))
+    cleanup:Add(function() open=false; Animation.Cancel(row); Animation.Cancel(list) end)
     display(state:Get())
-    return Base.Handle(row,state)
+    return Base.Handle(row,state,cleanup)
 end

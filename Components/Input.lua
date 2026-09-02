@@ -4,6 +4,7 @@ local Base = require(script.Parent.Base)
 
 return function(context, parent, options)
     options = options or {}
+    local cleanup=Base.Cleanup()
     local state = State.new(options.Default or "")
     local row = Base.Row(context, parent, options, 62)
     local box = Utility.Create("TextBox", {
@@ -14,13 +15,14 @@ return function(context, parent, options)
         TextSize=12, Parent=row,
     })
     Utility.Corner(box, UDim.new(0,8)); Utility.Stroke(box,context.Theme.Current.Stroke,0.55)
-    box.FocusLost:Connect(function(enterPressed)
+    cleanup:Add(box.FocusLost:Connect(function(enterPressed)
+        if not cleanup:IsAlive() then return end
         local value = box.Text
         if options.Validate and not options.Validate(value) then box.Text=state:Get(); return end
         state:Set(value)
         if options.Finished then Utility.SafeCallback(options.Callback,value,enterPressed) end
-    end)
-    if not options.Finished then box:GetPropertyChangedSignal("Text"):Connect(function() state:Set(box.Text) end) end
-    state.Changed:Connect(function(value) if box.Text ~= value then box.Text=value end; Utility.SafeCallback(options.Callback,value) end)
-    return Base.Handle(row,state)
+    end))
+    if not options.Finished then cleanup:Add(box:GetPropertyChangedSignal("Text"):Connect(function() if cleanup:IsAlive() then state:Set(box.Text) end end)) end
+    cleanup:Add(state.Changed:Connect(function(value) if cleanup:IsAlive() then if box.Text ~= value then box.Text=value end; Utility.SafeCallback(options.Callback,value) end end))
+    return Base.Handle(row,state,cleanup)
 end

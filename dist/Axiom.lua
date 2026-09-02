@@ -10,7 +10,12 @@ end
 
 __modules["Components/Base"]=function()
 local Utility = __require("Services/Utility")
+local Cleanup = __require("Services/Cleanup")
 local Base = {}
+
+function Base.Cleanup()
+    return Cleanup.new()
+end
 
 function Base.Row(context, parent, options, height)
     local theme = context.Theme.Current
@@ -33,12 +38,31 @@ function Base.Row(context, parent, options, height)
     return row, label
 end
 
-function Base.Handle(root, state)
-    local handle = { Instance = root, Changed = state and state.Changed or nil }
-    function handle:Get() return state and state:Get() end
-    function handle:Set(value) if state then state:Set(value) end end
-    function handle:SetVisible(visible) root.Visible = visible end
-    function handle:Destroy() if state then state:Destroy() end root:Destroy() end
+function Base.Handle(root, state, cleanup)
+    cleanup=cleanup or Cleanup.new()
+    local handle={Instance=root,Changed=state and state.Changed or nil,_cleanup=cleanup,_destroyed=false,_destroyCallbacks={}}
+    local function finalize()
+        if handle._destroyed then return end
+        handle._destroyed=true
+        for _,callback in ipairs(handle._destroyCallbacks) do pcall(callback) end
+        table.clear(handle._destroyCallbacks)
+        cleanup:Destroy()
+        if state then state:Destroy() end
+        handle.Changed=nil
+        handle.Instance=nil
+    end
+    cleanup:Add(root.Destroying:Connect(finalize))
+    function handle:Get() if not self._destroyed and state then return state:Get() end end
+    function handle:Set(value) if not self._destroyed and state then state:Set(value) end end
+    function handle:SetVisible(visible) if not self._destroyed and root.Parent then root.Visible=visible end end
+    function handle:_OnDestroy(callback)
+        if self._destroyed then pcall(callback) else table.insert(self._destroyCallbacks,callback) end
+    end
+    function handle:Destroy()
+        if self._destroyed then return end
+        finalize()
+        pcall(function() root:Destroy() end)
+    end
     return handle
 end
 
@@ -53,6 +77,7 @@ local Base = __require("Components/Base")
 
 return function(context, parent, options)
     options = options or {}
+    local cleanup=Base.Cleanup()
     local theme = context.Theme.Current
     local button = Utility.Create("TextButton", {
         Name = options.Name or "Button", Size = UDim2.new(1, 0, 0, 44), AutoButtonColor = false,
@@ -65,13 +90,15 @@ return function(context, parent, options)
     context.Theme:Bind(button, "BackgroundColor3", "SurfaceAlt")
     context.Theme:Bind(button, "TextColor3", "Text")
     context.Theme:Bind(stroke, "Color", "Stroke")
-    button.MouseEnter:Connect(function() Animation.Tween(button, { BackgroundColor3 = context.Theme.Current.SurfaceHover }) end)
-    button.MouseLeave:Connect(function() Animation.Tween(button, { BackgroundColor3 = context.Theme.Current.SurfaceAlt }) end)
-    button.Activated:Connect(function()
-        Animation.Ripple(button, theme.Primary)
+    cleanup:Add(button.MouseEnter:Connect(function() Animation.Tween(button, { BackgroundColor3 = context.Theme.Current.SurfaceHover }) end))
+    cleanup:Add(button.MouseLeave:Connect(function() Animation.Tween(button, { BackgroundColor3 = context.Theme.Current.SurfaceAlt }) end))
+    cleanup:Add(button.Activated:Connect(function()
+        if not cleanup:IsAlive() then return end
+        Animation.Ripple(button,theme.Primary,cleanup)
         Utility.SafeCallback(options.Callback)
-    end)
-    return Base.Handle(button)
+    end))
+    cleanup:Add(function() Animation.Cancel(button) end)
+    return Base.Handle(button,nil,cleanup)
 end
 
 end
@@ -98,6 +125,7 @@ local Base=__require("Components/Base")
 
 return function(context,parent,options)
     options=options or {}
+    local cleanup=Base.Cleanup()
     local state=State.new(options.Default or context.Theme.Current.Primary)
     local h,s,v=state:Get():ToHSV()
     local row=Base.Row(context,parent,options,62)
@@ -122,23 +150,24 @@ return function(context,parent,options)
     local function toHex(c) return string.format("#%02X%02X%02X",math.round(c.R*255),math.round(c.G*255),math.round(c.B*255)) end
     local function fromHex(value) local text=value:gsub("#",""); if #text~=6 then return nil end; local n=tonumber(text,16); if not n then return nil end; return Color3.fromRGB(bit32.rshift(n,16),bit32.band(bit32.rshift(n,8),255),bit32.band(n,255)) end
     local function applyHSV() state:Set(Color3.fromHSV(h,s,v)) end
-    local function updateSV(input) s=math.clamp((input.Position.X-sv.AbsolutePosition.X)/sv.AbsoluteSize.X,0,1); v=1-math.clamp((input.Position.Y-sv.AbsolutePosition.Y)/sv.AbsoluteSize.Y,0,1); applyHSV() end
-    local function updateHue(input) h=math.clamp((input.Position.Y-hue.AbsolutePosition.Y)/hue.AbsoluteSize.Y,0,1); applyHSV() end
-    sv.InputBegan:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then draggingSV=true; updateSV(input) end end)
-    hue.InputBegan:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then draggingHue=true; updateHue(input) end end)
-    UserInputService.InputChanged:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch then if draggingSV then updateSV(input) elseif draggingHue then updateHue(input) end end end)
-    UserInputService.InputEnded:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then draggingSV=false; draggingHue=false end end)
-    preview.Activated:Connect(function() open=not open; Animation.Tween(row,{Size=UDim2.new(1,0,0,open and 224 or 62)},0.28) end)
-    hex.FocusLost:Connect(function() local color=fromHex(hex.Text); if color then state:Set(color) else hex.Text=toHex(state:Get()) end end)
+    local function updateSV(input) if not cleanup:IsAlive() or sv.AbsoluteSize.X<=0 or sv.AbsoluteSize.Y<=0 then return end; s=math.clamp((input.Position.X-sv.AbsolutePosition.X)/sv.AbsoluteSize.X,0,1); v=1-math.clamp((input.Position.Y-sv.AbsolutePosition.Y)/sv.AbsoluteSize.Y,0,1); applyHSV() end
+    local function updateHue(input) if not cleanup:IsAlive() or hue.AbsoluteSize.Y<=0 then return end; h=math.clamp((input.Position.Y-hue.AbsolutePosition.Y)/hue.AbsoluteSize.Y,0,1); applyHSV() end
+    cleanup:Add(sv.InputBegan:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then draggingSV=true; updateSV(input) end end))
+    cleanup:Add(hue.InputBegan:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then draggingHue=true; updateHue(input) end end))
+    cleanup:Add(UserInputService.InputChanged:Connect(function(input) if cleanup:IsAlive() and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then if draggingSV then updateSV(input) elseif draggingHue then updateHue(input) end end end))
+    cleanup:Add(UserInputService.InputEnded:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then draggingSV=false; draggingHue=false end end))
+    cleanup:Add(preview.Activated:Connect(function() if cleanup:IsAlive() then open=not open; Animation.Tween(row,{Size=UDim2.new(1,0,0,open and 224 or 62)},0.28) end end))
+    cleanup:Add(hex.FocusLost:Connect(function() if not cleanup:IsAlive() then return end; local color=fromHex(hex.Text); if color then state:Set(color) else hex.Text=toHex(state:Get()) end end))
     local function render(color,fireCallback)
         h,s,v=color:ToHSV(); preview.BackgroundColor3=color; hex.Text=toHex(color); sv.BackgroundColor3=Color3.fromHSV(h,1,1)
         cursor.Position=UDim2.fromScale(s,1-v); hueCursor.Position=UDim2.fromScale(0.5,h)
         rgb.Text=string.format("RGB  %d  %d  %d",math.round(color.R*255),math.round(color.G*255),math.round(color.B*255))
         if fireCallback then Utility.SafeCallback(options.Callback,color,toHex(color)) end
     end
-    state.Changed:Connect(function(color) render(color,true) end)
+    cleanup:Add(state.Changed:Connect(function(color) if cleanup:IsAlive() then render(color,true) end end))
+    cleanup:Add(function() draggingSV=false; draggingHue=false; open=false; Animation.Cancel(row) end)
     render(state:Get(),false)
-    return Base.Handle(row,state)
+    return Base.Handle(row,state,cleanup)
 end
 
 end
@@ -151,6 +180,7 @@ local Base = __require("Components/Base")
 
 return function(context, parent, options)
     options = options or {}
+    local cleanup=Base.Cleanup()
     local values = options.Options or {}
     local multi = options.Multi == true
     local initial = options.Default or (multi and {} or values[1])
@@ -181,14 +211,16 @@ return function(context, parent, options)
     for _,value in ipairs(values) do
         local item=Utility.Create("TextButton",{Size=UDim2.new(1,0,0,32),BackgroundColor3=context.Theme.Current.SurfaceHover,BackgroundTransparency=0.18,BorderSizePixel=0,AutoButtonColor=false,Font=Enum.Font.Gotham,Text=tostring(value),TextColor3=context.Theme.Current.Text,TextSize=12,Parent=list})
         Utility.Corner(item,UDim.new(0,7))
-        item.Activated:Connect(function()
+        cleanup:Add(item.Activated:Connect(function()
+            if not cleanup:IsAlive() then return end
             if multi then local nextValue=table.clone(state:Get()); nextValue[value]=not nextValue[value]; state:Set(nextValue) else state:Set(value); setOpen(false) end
-        end)
+        end))
     end
-    selector.Activated:Connect(function() setOpen(not open) end)
-    state.Changed:Connect(function(value) display(value); Utility.SafeCallback(options.Callback,value) end)
+    cleanup:Add(selector.Activated:Connect(function() if cleanup:IsAlive() then setOpen(not open) end end))
+    cleanup:Add(state.Changed:Connect(function(value) if cleanup:IsAlive() then display(value); Utility.SafeCallback(options.Callback,value) end end))
+    cleanup:Add(function() open=false; Animation.Cancel(row); Animation.Cancel(list) end)
     display(state:Get())
-    return Base.Handle(row,state)
+    return Base.Handle(row,state,cleanup)
 end
 
 end
@@ -200,6 +232,7 @@ local Base = __require("Components/Base")
 
 return function(context, parent, options)
     options = options or {}
+    local cleanup=Base.Cleanup()
     local state = State.new(options.Default or "")
     local row = Base.Row(context, parent, options, 62)
     local box = Utility.Create("TextBox", {
@@ -210,15 +243,16 @@ return function(context, parent, options)
         TextSize=12, Parent=row,
     })
     Utility.Corner(box, UDim.new(0,8)); Utility.Stroke(box,context.Theme.Current.Stroke,0.55)
-    box.FocusLost:Connect(function(enterPressed)
+    cleanup:Add(box.FocusLost:Connect(function(enterPressed)
+        if not cleanup:IsAlive() then return end
         local value = box.Text
         if options.Validate and not options.Validate(value) then box.Text=state:Get(); return end
         state:Set(value)
         if options.Finished then Utility.SafeCallback(options.Callback,value,enterPressed) end
-    end)
-    if not options.Finished then box:GetPropertyChangedSignal("Text"):Connect(function() state:Set(box.Text) end) end
-    state.Changed:Connect(function(value) if box.Text ~= value then box.Text=value end; Utility.SafeCallback(options.Callback,value) end)
-    return Base.Handle(row,state)
+    end))
+    if not options.Finished then cleanup:Add(box:GetPropertyChangedSignal("Text"):Connect(function() if cleanup:IsAlive() then state:Set(box.Text) end end)) end
+    cleanup:Add(state.Changed:Connect(function(value) if cleanup:IsAlive() then if box.Text ~= value then box.Text=value end; Utility.SafeCallback(options.Callback,value) end end))
+    return Base.Handle(row,state,cleanup)
 end
 
 end
@@ -230,18 +264,21 @@ local Utility=__require("Services/Utility")
 local Base=__require("Components/Base")
 
 return function(context,parent,options)
-    options=options or {}; local state=State.new(options.Default or Enum.KeyCode.Unknown); local listening=false
+    options=options or {}; local cleanup=Base.Cleanup(); local state=State.new(options.Default or Enum.KeyCode.Unknown); local listening=false
     local row=Base.Row(context,parent,options,54)
     local capture=Utility.Create("TextButton",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-12,0.5,0),Size=UDim2.fromOffset(94,32),BackgroundColor3=context.Theme.Current.Background,BackgroundTransparency=0.15,BorderSizePixel=0,AutoButtonColor=false,Font=Enum.Font.GothamMedium,TextColor3=context.Theme.Current.TextMuted,TextSize=11,Parent=row})
     Utility.Corner(capture,UDim.new(0,8)); Utility.Stroke(capture,context.Theme.Current.Stroke,0.55)
     local function render(key) capture.Text=listening and "PRESS A KEY" or key.Name:upper() end
-    capture.Activated:Connect(function() listening=true; render(state:Get()) end)
-    UserInputService.InputBegan:Connect(function(input,processed)
+    cleanup:Add(capture.Activated:Connect(function() if cleanup:IsAlive() then listening=true; render(state:Get()) end end))
+    cleanup:Add(UserInputService.InputBegan:Connect(function(input,processed)
+        if not cleanup:IsAlive() then return end
         if listening and input.KeyCode~=Enum.KeyCode.Unknown then listening=false; state:Set(input.KeyCode); render(input.KeyCode); return end
         if not processed and input.KeyCode==state:Get() then Utility.SafeCallback(options.Callback,input.KeyCode) end
-    end)
-    state.Changed:Connect(render); render(state:Get())
-    return Base.Handle(row,state)
+    end))
+    cleanup:Add(state.Changed:Connect(function(value) if cleanup:IsAlive() then render(value) end end))
+    cleanup:Add(function() listening=false end)
+    render(state:Get())
+    return Base.Handle(row,state,cleanup)
 end
 
 end
@@ -269,6 +306,7 @@ local Base = __require("Components/Base")
 
 return function(context, parent, options)
     options = options or {}
+    local cleanup=Base.Cleanup()
     local min, max = options.Min or 0, options.Max or 100
     local increment = options.Increment or 1
     local state = State.new(math.clamp(options.Default or min, min, max))
@@ -288,18 +326,21 @@ return function(context, parent, options)
     local dragging = false
     local function render(value)
         valueLabel.Text = tostring(value) .. (options.Suffix or "")
-        Animation.Tween(fill, { Size = UDim2.fromScale((value-min)/(max-min),1) }, 0.12)
+        local range=max-min
+        Animation.Tween(fill, { Size = UDim2.fromScale(range==0 and 0 or (value-min)/range,1) }, 0.12)
     end
     local function update(input)
+        if not cleanup:IsAlive() or track.AbsoluteSize.X<=0 then return end
         local ratio = math.clamp((input.Position.X-track.AbsolutePosition.X)/track.AbsoluteSize.X,0,1)
         state:Set(math.floor((min+(max-min)*ratio)/increment+0.5)*increment)
     end
-    track.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging=true; update(input) end end)
-    UserInputService.InputChanged:Connect(function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then update(input) end end)
-    UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging=false end end)
-    state.Changed:Connect(function(value) render(value); Utility.SafeCallback(options.Callback,value) end)
+    cleanup:Add(track.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging=true; update(input) end end))
+    cleanup:Add(UserInputService.InputChanged:Connect(function(input) if dragging and cleanup:IsAlive() and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then update(input) end end))
+    cleanup:Add(UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging=false end end))
+    cleanup:Add(state.Changed:Connect(function(value) if cleanup:IsAlive() then render(value); Utility.SafeCallback(options.Callback,value) end end))
+    cleanup:Add(function() dragging=false; Animation.Cancel(fill) end)
     render(state:Get())
-    return Base.Handle(row,state)
+    return Base.Handle(row,state,cleanup)
 end
 
 end
@@ -312,6 +353,7 @@ local Base = __require("Components/Base")
 
 return function(context, parent, options)
     options = options or {}
+    local cleanup=Base.Cleanup()
     local theme = context.Theme.Current
     local state = State.new(options.Default == true)
     local row = Base.Row(context, parent, options, 54)
@@ -329,21 +371,22 @@ return function(context, parent, options)
         Animation.Tween(button, { BackgroundColor3 = value and context.Theme.Current.Primary or context.Theme.Current.SurfaceHover })
         Animation.Tween(knob, { Position = UDim2.new(0, value and 30 or 12, 0.5, 0), BackgroundColor3 = value and Color3.new(1,1,1) or context.Theme.Current.TextMuted })
     end
-    state.Changed:Connect(function(value) render(value); Utility.SafeCallback(options.Callback, value) end)
-    button.Activated:Connect(function() state:Set(not state:Get()) end)
+    cleanup:Add(state.Changed:Connect(function(value) if cleanup:IsAlive() then render(value); Utility.SafeCallback(options.Callback, value) end end))
+    cleanup:Add(button.Activated:Connect(function() if cleanup:IsAlive() then state:Set(not state:Get()) end end))
+    cleanup:Add(function() Animation.Cancel(button); Animation.Cancel(knob) end)
     render(state:Get())
-    return Base.Handle(row, state)
+    return Base.Handle(row,state,cleanup)
 end
 
 end
 
 __modules["Core/Engine"]=function()
 local Players=game:GetService("Players")
-local Lighting=game:GetService("Lighting")
 local Theme=__require("Core/Theme")
 local Window=__require("Core/Window")
 local Config=__require("Services/Config")
 local Animation=__require("Services/Animation")
+local Cleanup=__require("Services/Cleanup")
 local Utility=__require("Services/Utility")
 local Dark=__require("Themes/Dark")
 local Light=__require("Themes/Light")
@@ -360,52 +403,28 @@ end
 
 function Engine.new()
     local self=setmetatable({},Engine)
-    self.Theme=Theme.new(Dark); self.Windows={}; self.Config=Config.new("AxiomUI")
+    self.Theme=Theme.new(Dark)
+    self.Windows={}
+    self.Config=Config.new("AxiomUI")
+    self._Cleanup=Cleanup.new()
+    self._Destroyed=false
     self.Gui=Utility.Create("ScreenGui",{Name="AxiomUIEngine",ResetOnSpawn=false,IgnoreGuiInset=true,ZIndexBehavior=Enum.ZIndexBehavior.Sibling,Parent=resolveParent()})
     self.Toasts=Utility.Create("Frame",{AnchorPoint=Vector2.new(1,1),Position=UDim2.new(1,-20,1,-20),Size=UDim2.fromOffset(340,500),BackgroundTransparency=1,Parent=self.Gui})
     Utility.Create("UIListLayout",{VerticalAlignment=Enum.VerticalAlignment.Bottom,HorizontalAlignment=Enum.HorizontalAlignment.Right,Padding=UDim.new(0,10),Parent=self.Toasts})
     return self
 end
 
--- BUG 1 FIX: Blur global removido. Acrylic agora é simulado localmente via transparência + gradient.
--- Se Blur=true, cria um BlurEffect EXTREMAMENTE sutil (Size 2) por janela, com lifecycle amarrado à janela.
--- Nunca Size 12 que destrói visibilidade do jogo.
 function Engine:CreateWindow(options)
+    assert(not self._Destroyed,"Axiom has been destroyed")
     options=options or {}
     if options.Theme then self:SetTheme(options.Theme) end
     local window=Window.new(self,options)
     table.insert(self.Windows,window)
-
-    -- Acrylic é local (BackgroundTransparency + UIGradient), não precisa de Blur global.
-    -- Blur separado e seguro: apenas se explicitamente pedido, intensidade mínima e com cleanup.
-    if options.Blur then
-        local blur
-        local ok=pcall(function()
-            blur=Instance.new("BlurEffect")
-            blur.Name="AxiomBlur_"..tostring(window.Root:GetDebugId())
-            blur.Size=0
-            blur.Enabled=true
-            -- Tenta Lighting, fallback para CurrentCamera (ambos suportam BlurEffect)
-            local parented=false
-            pcall(function() blur.Parent=Lighting; parented=true end)
-            if not parented then
-                pcall(function() blur.Parent=workspace.CurrentCamera end)
-            end
-        end)
-        if ok and blur and blur.Parent then
-            window._Blur=blur
-            -- Intensidade premium sutil — fundo continua claramente visível
-            Animation.Tween(blur,{Size=2},0.32)
-        else
-            if blur then pcall(function() blur:Destroy() end) end
-            window._Blur=nil
-        end
-    end
-
     return window
 end
 
 function Engine:SetTheme(theme)
+    assert(not self._Destroyed,"Axiom has been destroyed")
     local resolved=type(theme)=="string" and self.Themes[theme] or theme
     assert(type(resolved)=="table","Unknown Axiom theme")
     self.Theme:Apply(resolved)
@@ -414,36 +433,37 @@ end
 function Engine:CreateTheme(overrides) return Custom(overrides) end
 
 function Engine:Notify(options)
+    if self._Destroyed then return nil end
     options=options or {}; local t=self.Theme.Current
     local toast=Utility.Create("Frame",{Size=UDim2.fromOffset(0,82),BackgroundColor3=t.Surface,BackgroundTransparency=0.04,BorderSizePixel=0,ClipsDescendants=true,Parent=self.Toasts}); Utility.Corner(toast,UDim.new(0,12)); Utility.Stroke(toast,t.Stroke,0.35)
     Utility.Create("Frame",{Size=UDim2.fromOffset(4,82),BackgroundColor3=options.Color or t.Primary,BorderSizePixel=0,Parent=toast})
     Utility.Create("TextLabel",{Position=UDim2.fromOffset(18,12),Size=UDim2.new(1,-32,0,20),BackgroundTransparency=1,Font=Enum.Font.GothamSemibold,Text=options.Title or "Axiom",TextColor3=t.Text,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,Parent=toast})
     Utility.Create("TextLabel",{Position=UDim2.fromOffset(18,35),Size=UDim2.new(1,-32,0,34),BackgroundTransparency=1,Font=Enum.Font.Gotham,Text=options.Description or "",TextColor3=t.TextMuted,TextSize=11,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,Parent=toast})
     Animation.Tween(toast,{Size=UDim2.fromOffset(340,82)},0.32)
-    task.delay(options.Duration or 4,function() Animation.Tween(toast,{Size=UDim2.fromOffset(0,82),BackgroundTransparency=1},0.3); task.delay(0.32,function() toast:Destroy() end) end)
+    self._Cleanup:Add(task.delay(options.Duration or 4,function()
+        if self._Destroyed or not toast.Parent then return end
+        Animation.Tween(toast,{Size=UDim2.fromOffset(0,82),BackgroundTransparency=1},0.3)
+        self._Cleanup:Add(task.delay(0.32,function() if toast.Parent then toast:Destroy() end end))
+    end))
     return toast
 end
 
 function Engine:Destroy()
-    -- Limpa todos os blurs por janela (não deixa órfão)
-    for _,w in ipairs(self.Windows) do
-        if w._Blur then pcall(function() w._Blur:Destroy() end) w._Blur=nil end
-        if w.Destroy then pcall(function() w:Destroy() end) end
+    if self._Destroyed then return end
+    self._Destroyed=true
+    -- Pop before destroying so a failing Window cannot stall or skip the registry.
+    while #self.Windows>0 do
+        local window=table.remove(self.Windows)
+        pcall(function() window:Destroy() end)
     end
-    -- Fallback: remove qualquer AxiomBlur legado em Lighting/Camera
-    pcall(function()
-        local legacy=Lighting:FindFirstChild("AxiomBlur")
-        if legacy then legacy:Destroy() end
-    end)
-    pcall(function()
-        local cam=workspace.CurrentCamera
-        if cam then
-            for _,v in ipairs(cam:GetChildren()) do
-                if v.Name:find("AxiomBlur") then v:Destroy() end
-            end
-        end
-    end)
-    if self.Gui then pcall(function() self.Gui:Destroy() end) end
+    self._Cleanup:Destroy()
+    self.Config:Destroy()
+    self.Theme:Destroy()
+    if self.Gui then self.Gui:Destroy() end
+    self.Gui=nil
+    self.Toasts=nil
+    self.Config=nil
+    self.Theme=nil
 end
 
 return Engine
@@ -466,7 +486,8 @@ function Signal:Connect(callback)
     function connection:Disconnect()
         if not self.Connected then return end
         self.Connected = false
-        connection._owner._listeners[self] = nil
+        if connection._owner then connection._owner._listeners[self] = nil end
+        connection._owner = nil
     end
     connection._owner = self
     return connection
@@ -476,14 +497,16 @@ function Signal:Fire(...)
     if self._destroyed then return end
     for connection, callback in pairs(self._listeners) do
         if connection.Connected then
-            task.spawn(callback, ...)
+            task.spawn(function(...)
+                if connection.Connected and not self._destroyed then callback(...) end
+            end, ...)
         end
     end
 end
 
 function Signal:Destroy()
     self._destroyed = true
-    for connection in pairs(self._listeners) do connection.Connected = false end
+    for connection in pairs(self._listeners) do connection.Connected = false; connection._owner=nil end
     table.clear(self._listeners)
 end
 
@@ -497,7 +520,7 @@ local State = {}
 State.__index = State
 
 function State.new(initialValue)
-    return setmetatable({ _value = initialValue, Changed = Signal.new() }, State)
+    return setmetatable({ _value = initialValue, Changed = Signal.new(), _destroyed=false }, State)
 end
 
 function State:Get()
@@ -505,6 +528,7 @@ function State:Get()
 end
 
 function State:Set(value)
+    if self._destroyed then return end
     if self._value == value then return end
     local previous = self._value
     self._value = value
@@ -512,11 +536,15 @@ function State:Set(value)
 end
 
 function State:Update(reducer)
+    if self._destroyed then return end
     self:Set(reducer(self._value))
 end
 
 function State:Destroy()
+    if self._destroyed then return end
+    self._destroyed=true
     self.Changed:Destroy()
+    self._value=nil
 end
 
 return State
@@ -535,6 +563,12 @@ end
 function Theme:Bind(instance, property, token, transform)
     local binding = { Instance = instance, Property = property, Token = token, Transform = transform }
     table.insert(self._bindings, binding)
+    binding.Connection=instance.Destroying:Connect(function()
+        for index,item in ipairs(self._bindings) do
+            if item==binding then table.remove(self._bindings,index) break end
+        end
+        binding.Instance=nil
+    end)
     local value = self.Current[token]
     if transform then value = transform(value, self.Current) end
     if value ~= nil then instance[property] = value end
@@ -545,7 +579,8 @@ function Theme:Apply(nextTheme)
     self.Current = nextTheme
     for index = #self._bindings, 1, -1 do
         local binding = self._bindings[index]
-        if not binding.Instance.Parent then
+        if not binding.Instance or not binding.Instance.Parent then
+            if binding.Connection then binding.Connection:Disconnect() end
             table.remove(self._bindings, index)
         else
             local value = nextTheme[binding.Token]
@@ -556,13 +591,24 @@ function Theme:Apply(nextTheme)
     self.Changed:Fire(nextTheme)
 end
 
+function Theme:Destroy()
+    for _,binding in ipairs(self._bindings) do
+        if binding.Connection then binding.Connection:Disconnect() end
+        binding.Instance=nil
+    end
+    table.clear(self._bindings)
+    self.Changed:Destroy()
+end
+
 return Theme
 
 end
 
 __modules["Core/Window"]=function()
 local UserInputService=game:GetService("UserInputService")
+local GuiService=game:GetService("GuiService")
 local Animation=__require("Services/Animation")
+local Cleanup=__require("Services/Cleanup")
 local Utility=__require("Services/Utility")
 local Icons=__require("Services/Icons")
 local Components={
@@ -588,6 +634,23 @@ local function getViewportSize()
     return Vector2.new(1920,1080)
 end
 
+local function offsetPosition(position,x,y)
+    return UDim2.new(position.X.Scale,position.X.Offset+x,position.Y.Scale,position.Y.Offset+y)
+end
+
+local function getMaximizedBounds()
+    local viewport=getViewportSize()
+    local topLeft,bottomRight=Vector2.zero,Vector2.zero
+    pcall(function() topLeft,bottomRight=GuiService:GetGuiInset() end)
+    local left=math.max(24,topLeft.X+12)
+    local top=math.max(24,topLeft.Y+12)
+    local right=math.max(24,bottomRight.X+12)
+    local bottom=math.max(24,bottomRight.Y+12)
+    local width=math.max(MIN_WIDTH,viewport.X-left-right)
+    local height=math.max(MIN_HEIGHT,viewport.Y-top-bottom)
+    return UDim2.fromOffset(math.round(width),math.round(height)),UDim2.fromOffset(math.round(left+width/2),math.round(top+height/2))
+end
+
 local function makeDraggable(window, frame, handle)
     local dragging, startInput, startPos=false,nil,nil
     local conns={}
@@ -602,16 +665,15 @@ local function makeDraggable(window, frame, handle)
             if window._WindowState.Maximized and not window._WindowState.Minimized then return end
             local delta=input.Position-startInput
             frame.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+delta.X,startPos.Y.Scale,startPos.Y.Offset+delta.Y)
-            if window._WindowState.Minimized and not window._WindowState.PreMinimizeMaximized then
-                window._WindowState.PreviousPosition=frame.Position
-                window.OriginalPosition=frame.Position
-            end
+            if window._WindowState.Minimized then window._WindowState.MinimizedPosition=frame.Position
+            else window.OriginalPosition=frame.Position end
         end
     end)
     conns[3]=UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then dragging=false end
     end)
-    for _,c in ipairs(conns) do table.insert(window._Connections,c) end
+    for _,c in ipairs(conns) do window._Cleanup:Add(c) end
+    window._Cleanup:Add(function() dragging=false; startInput=nil; startPos=nil end)
 end
 
 local function attachContainerApi(container,context,parent)
@@ -655,10 +717,10 @@ function Window.new(context,options)
         Context=context,
         Tabs={},ActiveTab=nil,
         Minimized=false,Maximized=false,
-        _Connections={},
-        _Blur=nil,
+        _Cleanup=Cleanup.new(),
+        _TransitionId=0,
         _IsDestroyed=false,
-        _WindowState={Minimized=false,Maximized=false,PreviousSize=nil,PreviousPosition=nil,PreMinimizeMaximized=nil,IsAnimating=false}
+        _WindowState={Minimized=false,Maximized=false,PreviousSize=nil,PreviousPosition=nil,PreMinimizeMaximized=nil,MinimizedPosition=nil,MinimizeDeltaY=0,IsAnimating=false}
     },Window)
     local t=context.Theme.Current
 
@@ -670,29 +732,40 @@ function Window.new(context,options)
         BorderSizePixel=0,ClipsDescendants=false,Parent=context.Gui,
     })
     local scale=Utility.Create("UIScale",{Scale=0.965,Parent=root})
-    Animation.Tween(scale,{Scale=1},0.34)
+    local scaleTween=Animation.Tween(scale,{Scale=1},0.34)
+    if scaleTween then self._Cleanup:Add(scaleTween) end
+    self._Cleanup:Add(function() Animation.Cancel(scale); scale.Scale=1 end)
 
-    -- WINDOW CLIP owns every visual layer, so background, gradient and children all
-    -- share the same clipping radius with no square frame underneath.
-    local windowClip=Utility.Create("Frame",{
-        Name="WindowClip",Size=UDim2.fromScale(1,1),BackgroundColor3=t.Background,
-        BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=true,Parent=root
+    -- Exactly one outer border: a rounded 1px background shell. Using a Frame instead
+    -- of UIStroke avoids corner halos caused by stroke rasterization during UIScale.
+    local windowVisual=Utility.Create("Frame",{
+        Name="WindowVisual",Size=UDim2.fromScale(1,1),BackgroundColor3=t.Stroke,
+        BackgroundTransparency=0.42,BorderSizePixel=0,Parent=root
     })
-    Utility.Corner(windowClip,UDim.new(0,WINDOW_RADIUS))
-    local outerStroke=Utility.Stroke(windowClip,t.Stroke,0.18,1)
+    Utility.Corner(windowVisual,UDim.new(0,WINDOW_RADIUS))
+    context.Theme:Bind(windowVisual,"BackgroundColor3","Stroke")
+
+    local localBlur=options.Blur==true
+    local acrylic=options.Acrylic~=false
+    local visualTransparency=acrylic and math.max(0.02,t.AcrylicTransparency-(localBlur and 0.035 or 0)) or 0
+    local windowClip=Utility.Create("Frame",{
+        Name="WindowClip",Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=t.Background,
+        BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=true,Parent=windowVisual
+    })
+    Utility.Corner(windowClip,UDim.new(0,WINDOW_RADIUS-1))
     context.Theme:Bind(windowClip,"BackgroundColor3","Background")
-    context.Theme:Bind(outerStroke,"Color","Stroke")
     Utility.Create("UIGradient",{
         Rotation=38,
         Color=ColorSequence.new(t.Background,Color3.fromRGB(15,16,27)),
-        Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0),NumberSequenceKeypoint.new(0.62,0.04),NumberSequenceKeypoint.new(1,0)}),
+        Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,localBlur and 0 or 0.02),NumberSequenceKeypoint.new(0.62,localBlur and 0.02 or 0.06),NumberSequenceKeypoint.new(1,0)}),
         Parent=windowClip,
     })
-    Animation.Tween(windowClip,{BackgroundTransparency=options.Acrylic==false and 0 or t.AcrylicTransparency},0.3)
+    local openTween=Animation.Tween(windowClip,{BackgroundTransparency=visualTransparency},0.3)
+    if openTween then self._Cleanup:Add(openTween) end
 
     -- TITLE BAR (Header) - dentro do clip, cantos arredondados via parent clip
     local top=Utility.Create("Frame",{Name="TitleBar",Size=UDim2.new(1,0,0,HEADER_HEIGHT),BackgroundColor3=t.Surface,BackgroundTransparency=0.58,BorderSizePixel=0,Parent=windowClip})
-    Utility.Create("Frame",{AnchorPoint=Vector2.new(0,1),Position=UDim2.fromScale(0,1),Size=UDim2.new(1,0,0,1),BackgroundColor3=t.Stroke,BackgroundTransparency=0.5,BorderSizePixel=0,Parent=top})
+    Utility.Create("Frame",{AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,12,1,0),Size=UDim2.new(1,-24,0,1),BackgroundColor3=t.Stroke,BackgroundTransparency=0.5,BorderSizePixel=0,Parent=top})
     local logo=Utility.Create("Frame",{Position=UDim2.fromOffset(18,14),Size=UDim2.fromOffset(30,30),BackgroundColor3=t.Primary,BorderSizePixel=0,Parent=top})
     Utility.Corner(logo,UDim.new(1,0))
     Utility.Create("UIGradient",{Rotation=135,Color=ColorSequence.new(t.Primary,Color3.fromRGB(36,39,59)),Parent=logo})
@@ -703,9 +776,9 @@ function Window.new(context,options)
     local function topButton(text,x,callback,color)
         local button=Utility.Create("TextButton",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,x,0,13),Size=UDim2.fromOffset(32,32),BackgroundColor3=t.SurfaceAlt,BackgroundTransparency=0.22,BorderSizePixel=0,AutoButtonColor=false,Font=Enum.Font.GothamBold,Text=text,TextColor3=color or t.TextMuted,TextSize=14,Parent=top})
         Utility.Corner(button,UDim.new(0,8)); Utility.Stroke(button,t.Stroke,0.68)
-        button.MouseEnter:Connect(function() Animation.Tween(button,{BackgroundColor3=t.SurfaceHover,TextColor3=color or t.Text}) end)
-        button.MouseLeave:Connect(function() Animation.Tween(button,{BackgroundColor3=t.SurfaceAlt,TextColor3=color or t.TextMuted}) end)
-        button.Activated:Connect(callback)
+        self._Cleanup:Add(button.MouseEnter:Connect(function() Animation.Tween(button,{BackgroundColor3=t.SurfaceHover,TextColor3=color or t.Text}) end))
+        self._Cleanup:Add(button.MouseLeave:Connect(function() Animation.Tween(button,{BackgroundColor3=t.SurfaceAlt,TextColor3=color or t.TextMuted}) end))
+        self._Cleanup:Add(button.Activated:Connect(callback))
         return button
     end
     topButton("—",-94,function() self:Minimize() end,t.Primary)
@@ -716,7 +789,7 @@ function Window.new(context,options)
     local body=Utility.Create("CanvasGroup",{Name="Body",Position=UDim2.fromOffset(0,HEADER_HEIGHT),Size=UDim2.new(1,0,1,-HEADER_HEIGHT),BackgroundTransparency=1,BorderSizePixel=0,GroupTransparency=0,Parent=windowClip})
 
     local sidebar=Utility.Create("Frame",{Position=UDim2.fromOffset(0,0),Size=UDim2.new(0,88,1,0),BackgroundColor3=t.Surface,BackgroundTransparency=0.64,BorderSizePixel=0,Parent=body})
-    Utility.Create("Frame",{AnchorPoint=Vector2.new(1,0),Position=UDim2.fromScale(1,0),Size=UDim2.new(0,1,1,0),BackgroundColor3=t.Stroke,BackgroundTransparency=0.52,BorderSizePixel=0,Parent=sidebar})
+    Utility.Create("Frame",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,12),Size=UDim2.new(0,1,1,-24),BackgroundColor3=t.Stroke,BackgroundTransparency=0.52,BorderSizePixel=0,Parent=sidebar})
     local tabList=Utility.Create("Frame",{Position=UDim2.fromOffset(15,18),Size=UDim2.new(1,-30,1,-92),BackgroundTransparency=1,Parent=sidebar})
     Utility.Create("UIListLayout",{Padding=UDim.new(0,9),HorizontalAlignment=Enum.HorizontalAlignment.Center,Parent=tabList})
     local status=Utility.Create("Frame",{AnchorPoint=Vector2.new(0.5,1),Position=UDim2.new(0.5,0,1,-16),Size=UDim2.fromOffset(56,56),BackgroundColor3=t.SurfaceAlt,BackgroundTransparency=0.2,BorderSizePixel=0,Parent=sidebar})
@@ -728,6 +801,7 @@ function Window.new(context,options)
     local content=Utility.Create("Frame",{Position=UDim2.fromOffset(110,22),Size=UDim2.new(1,-132,1,-44),BackgroundTransparency=1,Parent=body})
 
     self.Root=root
+    self.WindowVisual=windowVisual
     self.WindowClip=windowClip
     self.TitleBar=top
     self.Body=body
@@ -756,28 +830,7 @@ function Window.new(context,options)
         ZIndex=10,
         Parent=windowClip
     })
-    -- Indicador premium extremamente discreto (3 tracinhos diagonais com 92% transparência) — só aparece no hover
-    local grip=Utility.Create("Frame",{Name="GripVisual",AnchorPoint=Vector2.new(1,1),Position=UDim2.new(1,-2,1,-2),Size=UDim2.fromOffset(12,12),BackgroundTransparency=1,Parent=resize})
-    for i=1,3 do
-        local line=Utility.Create("Frame",{
-            Size=UDim2.new(1,0,0,1),
-            Position=UDim2.new(0,0,0,(i-1)*4),
-            BackgroundColor3=t.TextMuted,
-            BackgroundTransparency=0.92,
-            BorderSizePixel=0,
-            Parent=grip
-        })
-        Utility.Corner(line,UDim.new(1,0))
-        line.Rotation=45
-        line.AnchorPoint=Vector2.new(0.5,0.5)
-        line.Position=UDim2.new(0.5,0,0.5,(i-1)*4 -4)
-    end
-    grip.Visible=false
-    resize.MouseEnter:Connect(function() grip.Visible=true end)
-    resize.MouseLeave:Connect(function() grip.Visible=false end)
-
     self.ResizeHandle=resize
-    self._GripVisual=grip
 
     -- Resize logic centralizada, sem leak, respeitando estados e limites
     local resizing,resizeStart,sizeStart=false,nil,nil
@@ -794,9 +847,9 @@ function Window.new(context,options)
         if self._WindowState.Minimized or self._WindowState.Maximized then return end
         if input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch then
             local delta=input.Position-resizeStart
-            local viewport=getViewportSize()
-            local maxW=viewport.X-48
-            local maxH=viewport.Y-48
+            local maxSize=getMaximizedBounds()
+            local maxW=maxSize.X.Offset
+            local maxH=maxSize.Y.Offset
             local newW=math.clamp(sizeStart.X+delta.X, MIN_WIDTH, maxW)
             local newH=math.clamp(sizeStart.Y+delta.Y, MIN_HEIGHT, maxH)
             root.Size=UDim2.fromOffset(newW,newH)
@@ -808,12 +861,23 @@ function Window.new(context,options)
     local c3=UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then resizing=false end
     end)
-    table.insert(self._Connections,c1); table.insert(self._Connections,c2); table.insert(self._Connections,c3)
+    self._Cleanup:Add(c1); self._Cleanup:Add(c2); self._Cleanup:Add(c3)
+    self._Cleanup:Add(function() resizing=false; resizeStart=nil; sizeStart=nil end)
+    self._Cleanup:Add(root.Destroying:Connect(function() if not self._IsDestroyed then self:Destroy() end end))
 
     return self
 end
 
+function Window:_Delay(seconds,callback)
+    local thread=task.delay(seconds,function()
+        if not self._IsDestroyed then callback() end
+    end)
+    self._Cleanup:Add(thread)
+    return thread
+end
+
 function Window:AddTab(options)
+    assert(not self._IsDestroyed,"Cannot add a tab to a destroyed Window")
     options=options or {}
     local t=self.Context.Theme.Current
     local button=Utility.Create("TextButton",{Size=UDim2.fromOffset(56,52),BackgroundColor3=t.Primary,BackgroundTransparency=1,BorderSizePixel=0,AutoButtonColor=false,Text="",Parent=self.TabList})
@@ -822,12 +886,15 @@ function Window:AddTab(options)
     local icon=Utility.Create("ImageLabel",{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(22,22),BackgroundTransparency=1,Image=Icons.Get(options.Icon),ImageColor3=t.TextMuted,Parent=button})
     local tooltip=Utility.Create("TextLabel",{Position=UDim2.new(1,12,0.5,-15),Size=UDim2.fromOffset(0,30),BackgroundColor3=t.SurfaceAlt,BackgroundTransparency=0.04,BorderSizePixel=0,Font=Enum.Font.GothamMedium,Text=options.Name or "Tab",TextColor3=t.Text,TextSize=11,Visible=false,ClipsDescendants=true,ZIndex=20,Parent=button})
     Utility.Corner(tooltip,UDim.new(0,7)); Utility.Stroke(tooltip,t.Stroke,0.45)
-    button.MouseEnter:Connect(function() tooltip.Visible=true; Animation.Tween(tooltip,{Size=UDim2.fromOffset(110,30)},0.16) end)
-    button.MouseLeave:Connect(function() Animation.Tween(tooltip,{Size=UDim2.fromOffset(0,30)},0.12); task.delay(0.13,function() if tooltip then tooltip.Visible=false end end) end)
+    self._Cleanup:Add(button.MouseEnter:Connect(function() if tooltip.Parent then tooltip.Visible=true; Animation.Tween(tooltip,{Size=UDim2.fromOffset(110,30)},0.16) end end))
+    self._Cleanup:Add(button.MouseLeave:Connect(function()
+        Animation.Tween(tooltip,{Size=UDim2.fromOffset(0,30)},0.12)
+        self:_Delay(0.13,function() if tooltip.Parent then tooltip.Visible=false end end)
+    end))
     local page=Utility.Create("ScrollingFrame",{Name=(options.Name or "Tab").."Page",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,ScrollBarImageColor3=t.Primary,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new(),Visible=false,Parent=self.Content})
     Utility.Padding(page,2); Utility.Create("UIListLayout",{Padding=UDim.new(0,12),SortOrder=Enum.SortOrder.LayoutOrder,Parent=page})
     local tab=attachContainerApi({Window=self,Button=button,Icon=icon,Gradient=gradient,Page=page,Options=options},self.Context,page)
-    function tab:Select() self.Window:SelectTab(self) end
+    function tab:Select() if self.Window then self.Window:SelectTab(self) end end
     function tab:AddColumnGroup(groupOptions)
         groupOptions=groupOptions or {}
         local gap=groupOptions.Gap or 12
@@ -840,13 +907,14 @@ function Window:AddTab(options)
         Utility.Create("UIListLayout",{Padding=UDim.new(0,9),Parent=right})
         return attachContainerApi({},self.Window.Context,left),attachContainerApi({},self.Window.Context,right)
     end
-    button.Activated:Connect(function() tab:Select() end)
+    self._Cleanup:Add(button.Activated:Connect(function() if not self._IsDestroyed then tab:Select() end end))
     table.insert(self.Tabs,tab)
     if not self.ActiveTab then self:SelectTab(tab) end
     return tab
 end
 
 function Window:SelectTab(tab)
+    if self._IsDestroyed then return end
     for _,item in ipairs(self.Tabs) do
         local active=item==tab
         item.Page.Visible=active
@@ -856,82 +924,71 @@ function Window:SelectTab(tab)
     self.ActiveTab=tab
 end
 
--- Helpers internos para blur seguro
-function Window:_SetBlurEnabled(enabled)
-    if not self._Blur then return end
-    pcall(function()
-        if enabled then
-            Animation.Tween(self._Blur,{Size=2},0.28)
-        else
-            Animation.Tween(self._Blur,{Size=0},0.22)
-        end
-    end)
-end
-
 function Window:_DoMinimize()
     if self._WindowState.IsAnimating then return end
+    self._TransitionId+=1
+    local token=self._TransitionId
     self._WindowState.IsAnimating=true
-    -- Salva estado antes de minimizar (para MAXIMIZED->MINIMIZED->MAXIMIZED)
-    self._WindowState.PreviousSize=self.Root.Size
-    self._WindowState.PreviousPosition=self.Root.Position
     self._WindowState.PreMinimizeMaximized=self._WindowState.Maximized
+    if not self._WindowState.Maximized then
+        self._WindowState.PreviousSize=self.Root.Size
+        self._WindowState.PreviousPosition=self.Root.Position
+    end
+    local deltaY=math.max(0,(self.Root.AbsoluteSize.Y-HEADER_HEIGHT)/2)
+    self._WindowState.MinimizeDeltaY=deltaY
+    self._WindowState.MinimizedPosition=offsetPosition(self.Root.Position,0,-deltaY)
     self._WindowState.Minimized=true
     self.Minimized=true
-
-    -- Blur: desativa levemente quando minimizado (mantém premium sem borrar)
-    self:_SetBlurEnabled(false)
-
-    -- Fade body e esconde antes de animar altura
     Animation.Tween(self.Body,{GroupTransparency=1},0.12)
-    task.delay(0.12,function()
-        if not self._WindowState.Minimized then return end
+    self:_Delay(0.12,function()
+        if token~=self._TransitionId or not self._WindowState.Minimized then return end
         self.Body.Visible=false
         self.ResizeHandle.Visible=false
-        if self._GripVisual then self._GripVisual.Visible=false end
-        -- Calcula tamanho minimizado: mesma largura, altura = HEADER
-        local prev=self._WindowState.PreviousSize
-        local minimizedSize=UDim2.new(prev.X.Scale, prev.X.Offset, 0, HEADER_HEIGHT)
-        Animation.Tween(self.Root,{Size=minimizedSize},TWEEN_MINIMIZE, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-        task.delay(TWEEN_MINIMIZE,function() self._WindowState.IsAnimating=false end)
+        local minimizedSize=UDim2.fromOffset(self.Root.AbsoluteSize.X,HEADER_HEIGHT)
+        Animation.Tween(self.Root,{Size=minimizedSize,Position=self._WindowState.MinimizedPosition},TWEEN_MINIMIZE,Enum.EasingStyle.Quint,Enum.EasingDirection.Out)
+        self:_Delay(TWEEN_MINIMIZE,function()
+            if token==self._TransitionId then self._WindowState.IsAnimating=false end
+        end)
     end)
 end
 
 function Window:_DoRestoreFromMinimize()
     if self._WindowState.IsAnimating then return end
+    self._TransitionId+=1
+    local token=self._TransitionId
     self._WindowState.IsAnimating=true
     self._WindowState.Minimized=false
     self.Minimized=false
 
     local targetSize=self._WindowState.PreviousSize or self.OriginalSize
-    local targetPos=self._WindowState.PreviousPosition or self.OriginalPosition
-    -- Se veio de maximizado, restaura para maximizado
+    local targetPos=offsetPosition(self.Root.Position,0,self._WindowState.MinimizeDeltaY or 0)
     if self._WindowState.PreMinimizeMaximized then
         self._WindowState.Maximized=true
         self.Maximized=true
-        targetSize=UDim2.new(1,-48,1,-48)
-        targetPos=UDim2.fromScale(0.5,0.5)
+        targetSize,targetPos=getMaximizedBounds()
         Animation.Tween(self.Root,{Size=targetSize,Position=targetPos},TWEEN_RESTORE)
-        task.delay(TWEEN_RESTORE,function()
+        self:_Delay(TWEEN_RESTORE,function()
+            if token~=self._TransitionId then return end
             self.Body.Visible=true
-            self.ResizeHandle.Visible=false -- continua invisível quando maximizado (sem resize)
+            self.ResizeHandle.Visible=false
             Animation.Tween(self.Body,{GroupTransparency=0},0.16)
-            self:_SetBlurEnabled(true)
             self._WindowState.IsAnimating=false
         end)
     else
         self._WindowState.Maximized=false
         self.Maximized=false
         Animation.Tween(self.Root,{Size=targetSize,Position=targetPos},TWEEN_RESTORE, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-        task.delay(TWEEN_RESTORE,function()
+        self:_Delay(TWEEN_RESTORE,function()
+            if token~=self._TransitionId then return end
             self.Body.Visible=true
             self.ResizeHandle.Visible=true
             Animation.Tween(self.Body,{GroupTransparency=0},0.16)
-            self:_SetBlurEnabled(true)
             self._WindowState.IsAnimating=false
         end)
+        self._WindowState.PreviousPosition=targetPos
+        self.OriginalPosition=targetPos
     end
     self.OriginalSize=targetSize
-    self.OriginalPosition=targetPos
 end
 
 function Window:Minimize()
@@ -939,7 +996,6 @@ function Window:Minimize()
     if self._WindowState.Minimized then
         self:_DoRestoreFromMinimize()
     else
-        -- Se maximizado, não faz tween direto para 66 com largura scale; o _DoMinimize já lida guardando PreMinimizeMaximized
         self:_DoMinimize()
     end
 end
@@ -947,45 +1003,39 @@ end
 function Window:Maximize()
     if self._IsDestroyed then return end
     if self._WindowState.IsAnimating then return end
-    -- Se minimizado, restaura primeiro (comportamento consistente) — mas spec permite MAXIMIZED->MINIMIZED->MAXIMIZED,
-    -- então se estiver minimizado e maximizado flag estava true, o Minimize já guardou. Aqui se estiver minimizado, tratamos como restore para maximizado
     if self._WindowState.Minimized then
-        -- Minimizado -> Maximizar: restaura direto para maximizado sem passar por Normal
+        self._WindowState.PreMinimizeMaximized=true
         self:_DoRestoreFromMinimize()
-        -- Após restore, se ainda não maximizado e queremos maximizar, schedule
-        if not self._WindowState.Maximized then
-            task.delay(TWEEN_RESTORE+0.02,function() self:Maximize() end)
-        end
         return
     end
 
+    self._TransitionId+=1
+    local token=self._TransitionId
     if self._WindowState.Maximized then
-        -- Restaurar
         self._WindowState.IsAnimating=true
         self._WindowState.Maximized=false
         self.Maximized=false
         local targetSize=self._WindowState.PreviousSize or self.OriginalSize
         local targetPos=self._WindowState.PreviousPosition or self.OriginalPosition
         Animation.Tween(self.Root,{Size=targetSize,Position=targetPos},TWEEN_MAXIMIZE, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-        task.delay(TWEEN_MAXIMIZE,function()
+        self:_Delay(TWEEN_MAXIMIZE,function()
+            if token~=self._TransitionId then return end
             self.ResizeHandle.Visible=true
             self._WindowState.IsAnimating=false
             self.OriginalSize=targetSize
             self.OriginalPosition=targetPos
         end)
     else
-        -- Maximizar
         self._WindowState.PreviousSize=self.Root.Size
         self._WindowState.PreviousPosition=self.Root.Position
         self._WindowState.IsAnimating=true
         self._WindowState.Maximized=true
         self.Maximized=true
-        -- Respeita viewport, não ultrapassa topbar: usa inset 48 e posição 0.5
-        local maxSize=UDim2.new(1,-48,1,-48)
-        local maxPos=UDim2.fromScale(0.5,0.5)
+        local maxSize,maxPos=getMaximizedBounds()
         Animation.Tween(self.Root,{Size=maxSize,Position=maxPos},TWEEN_MAXIMIZE, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-        task.delay(TWEEN_MAXIMIZE,function()
-            self.ResizeHandle.Visible=false -- sem resize durante maximizado
+        self:_Delay(TWEEN_MAXIMIZE,function()
+            if token~=self._TransitionId then return end
+            self.ResizeHandle.Visible=false
             self._WindowState.IsAnimating=false
         end)
     end
@@ -993,36 +1043,55 @@ end
 
 function Window:Close()
     if self._IsDestroyed then return end
-    if self._Blur then
-        Animation.Tween(self._Blur,{Size=0},0.18)
-        task.delay(0.20,function() if self._Blur then pcall(function() self._Blur:Destroy() end) self._Blur=nil end end)
-    end
+    self._TransitionId+=1
     Animation.Tween(self.WindowClip,{BackgroundTransparency=1},0.20)
+    Animation.Tween(self.WindowVisual,{BackgroundTransparency=1},0.20)
     Animation.Tween(self.Root,{Size=UDim2.fromOffset(self.Root.AbsoluteSize.X*0.94,self.Root.AbsoluteSize.Y*0.94)},0.24)
-    task.delay(0.25,function() self:Destroy() end)
+    self:_Delay(0.25,function() self:Destroy() end)
 end
 
-function Window:SetTheme(theme) self.Context.Theme:Apply(theme) end
+function Window:SetTheme(theme) if not self._IsDestroyed then self.Context.Theme:Apply(theme) end end
 
 function Window:Destroy()
     if self._IsDestroyed then return end
     self._IsDestroyed=true
-    -- Desconecta tudo para evitar memory leak
-    for _,conn in ipairs(self._Connections) do
-        pcall(function() if conn and conn.Disconnect then conn:Disconnect() end end)
-    end
-    self._Connections={}
-    if self._Blur then pcall(function() self._Blur:Destroy() end) self._Blur=nil end
-    if self.Root then pcall(function() self.Root:Destroy() end) end
-    -- Remove da lista do Engine
-    if self.Context and self.Context.Windows then
-        for i,w in ipairs(self.Context.Windows) do
-            if w==self then table.remove(self.Context.Windows,i) break end
+    self._TransitionId+=1
+    local context=self.Context
+    local root=self.Root
+    self._Cleanup:Destroy()
+    Animation.Cancel(self.Body)
+    Animation.Cancel(self.WindowClip)
+    Animation.Cancel(self.WindowVisual)
+    Animation.Cancel(root)
+    if root then pcall(function() root:Destroy() end) end
+    if context and context.Windows then
+        for i,w in ipairs(context.Windows) do
+            if w==self then table.remove(context.Windows,i) break end
         end
     end
-    -- Limpa referências
-    self.Tabs={}
+    for _,tab in ipairs(self.Tabs) do
+        tab.Window=nil
+        tab.Button=nil
+        tab.Icon=nil
+        tab.Gradient=nil
+        tab.Page=nil
+        tab.RootParent=nil
+        tab.CurrentParent=nil
+    end
+    table.clear(self.Tabs)
     self.ActiveTab=nil
+    self.ResizeHandle=nil
+    self.Body=nil
+    self.Sidebar=nil
+    self.TabList=nil
+    self.Content=nil
+    self.TitleBar=nil
+    self.WindowClip=nil
+    self.WindowVisual=nil
+    self.Root=nil
+    self.Context=nil
+    self._Cleanup=nil
+    self._WindowState=nil
 end
 return Window
 
@@ -1031,20 +1100,35 @@ end
 __modules["Services/Animation"]=function()
 local TweenService = game:GetService("TweenService")
 local Animation = {}
+local activeTweens=setmetatable({},{__mode="k"})
 
 function Animation.Tween(instance, properties, duration, style, direction)
+    if not instance or not instance.Parent then return nil end
+    local previous=activeTweens[instance]
+    if previous then pcall(function() previous:Cancel() end) end
     local info = TweenInfo.new(duration or 0.22, style or Enum.EasingStyle.Quint, direction or Enum.EasingDirection.Out)
     local tween = TweenService:Create(instance, info, properties)
+    activeTweens[instance]=tween
+    tween.Completed:Once(function()
+        if activeTweens[instance]==tween then activeTweens[instance]=nil end
+    end)
     tween:Play()
     return tween
 end
 
-function Animation.Hover(gui, normal, hovered)
-    gui.MouseEnter:Connect(function() Animation.Tween(gui, hovered) end)
-    gui.MouseLeave:Connect(function() Animation.Tween(gui, normal) end)
+function Animation.Cancel(instance)
+    local tween=activeTweens[instance]
+    if tween then pcall(function() tween:Cancel() end); activeTweens[instance]=nil end
 end
 
-function Animation.Ripple(button, color)
+function Animation.Hover(gui, normal, hovered, cleanup)
+    local enter=gui.MouseEnter:Connect(function() Animation.Tween(gui, hovered) end)
+    local leave=gui.MouseLeave:Connect(function() Animation.Tween(gui, normal) end)
+    if cleanup then cleanup:Add(enter); cleanup:Add(leave) end
+    return enter,leave
+end
+
+function Animation.Ripple(button, color, cleanup)
     local ripple = Instance.new("Frame")
     ripple.Name = "AxiomRipple"
     ripple.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -1057,10 +1141,64 @@ function Animation.Ripple(button, color)
     Instance.new("UICorner", ripple).CornerRadius = UDim.new(1, 0)
     local target = math.max(button.AbsoluteSize.X, button.AbsoluteSize.Y) * 1.8
     Animation.Tween(ripple, { Size = UDim2.fromOffset(target, target), BackgroundTransparency = 1 }, 0.42)
-    task.delay(0.45, function() ripple:Destroy() end)
+    local thread=task.delay(0.45, function() if ripple.Parent then ripple:Destroy() end end)
+    if cleanup then cleanup:Add(thread) end
 end
 
 return Animation
+
+end
+
+__modules["Services/Cleanup"]=function()
+local Cleanup={}
+Cleanup.__index=Cleanup
+
+function Cleanup.new()
+    return setmetatable({_tasks={},_destroyed=false},Cleanup)
+end
+
+function Cleanup:Add(item)
+    if item==nil then return nil end
+    if self._destroyed then
+        self:_Clean(item)
+        return item
+    end
+    table.insert(self._tasks,item)
+    return item
+end
+
+function Cleanup:_Clean(item)
+    local kind=typeof(item)
+    if kind=="RBXScriptConnection" then
+        if item.Connected then item:Disconnect() end
+    elseif kind=="Instance" then
+        if item:IsA("TweenBase") then item:Cancel() end
+        item:Destroy()
+    elseif kind=="function" then
+        item()
+    elseif kind=="thread" then
+        pcall(task.cancel,item)
+    elseif type(item)=="table" then
+        if item.Disconnect then item:Disconnect()
+        elseif item.Cancel then item:Cancel()
+        elseif item.Destroy then item:Destroy() end
+    end
+end
+
+function Cleanup:IsAlive()
+    return not self._destroyed
+end
+
+function Cleanup:Destroy()
+    if self._destroyed then return end
+    self._destroyed=true
+    for i=#self._tasks,1,-1 do
+        pcall(function() self:_Clean(self._tasks[i]) end)
+        self._tasks[i]=nil
+    end
+end
+
+return Cleanup
 
 end
 
@@ -1069,20 +1207,40 @@ local HttpService=game:GetService("HttpService")
 local Config={}; Config.__index=Config
 
 function Config.new(namespace)
-    return setmetatable({Namespace=namespace or "Axiom",Values={},Profiles={},AutoSave=false,AutoSaveProfile="default",_connections={}},Config)
+    return setmetatable({Namespace=namespace or "Axiom",Values={},Profiles={},AutoSave=false,AutoSaveProfile="default",_connections={},_destroyed=false},Config)
 end
 
 function Config:Register(key,control)
+    if self._destroyed then return control end
+    if self._connections[key] then self._connections[key]:Disconnect() end
     self.Values[key]=control
     if control.Changed then
         self._connections[key]=control.Changed:Connect(function()
             if self.AutoSave then
                 local revision=tick(); self._pendingRevision=revision
-                task.delay(0.35,function() if self._pendingRevision==revision then self:Save(self.AutoSaveProfile) end end)
+                task.delay(0.35,function() if not self._destroyed and self._pendingRevision==revision then self:Save(self.AutoSaveProfile) end end)
+            end
+        end)
+    end
+    if control._OnDestroy then
+        control:_OnDestroy(function()
+            if self.Values[key]==control then
+                self.Values[key]=nil
+                if self._connections[key] then self._connections[key]:Disconnect(); self._connections[key]=nil end
             end
         end)
     end
     return control
+end
+
+function Config:Destroy()
+    if self._destroyed then return end
+    self._destroyed=true
+    self.AutoSave=false
+    self._pendingRevision=nil
+    for key,connection in pairs(self._connections) do connection:Disconnect(); self._connections[key]=nil end
+    table.clear(self.Values)
+    table.clear(self.Profiles)
 end
 
 function Config:EnableAutoSave(enabled,profile)
@@ -1113,6 +1271,7 @@ function Config:LoadTable(data)
 end
 
 function Config:Save(profile)
+    if self._destroyed then return nil end
     profile=profile or "default"; local data=self:Serialize(); self.Profiles[profile]=data
     if writefile then
         if makefolder then pcall(makefolder,self.Namespace) end
@@ -1122,6 +1281,7 @@ function Config:Save(profile)
 end
 
 function Config:Load(profile)
+    if self._destroyed then return false end
     profile=profile or "default"; local data=self.Profiles[profile]
     if not data and readfile and isfile and isfile(self.Namespace.."/"..profile..".json") then
         local ok,result=pcall(function() return HttpService:JSONDecode(readfile(self.Namespace.."/"..profile..".json")) end)
@@ -1172,7 +1332,7 @@ end
 function Utility.Stroke(parent, color, transparency, thickness)
     return Utility.Create("UIStroke", {
         Color = color, Transparency = transparency or 0, Thickness = thickness or 1,
-        ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = parent,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border, LineJoinMode = Enum.LineJoinMode.Round, Parent = parent,
     })
 end
 

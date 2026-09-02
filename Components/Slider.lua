@@ -6,6 +6,7 @@ local Base = require(script.Parent.Base)
 
 return function(context, parent, options)
     options = options or {}
+    local cleanup=Base.Cleanup()
     local min, max = options.Min or 0, options.Max or 100
     local increment = options.Increment or 1
     local state = State.new(math.clamp(options.Default or min, min, max))
@@ -25,16 +26,19 @@ return function(context, parent, options)
     local dragging = false
     local function render(value)
         valueLabel.Text = tostring(value) .. (options.Suffix or "")
-        Animation.Tween(fill, { Size = UDim2.fromScale((value-min)/(max-min),1) }, 0.12)
+        local range=max-min
+        Animation.Tween(fill, { Size = UDim2.fromScale(range==0 and 0 or (value-min)/range,1) }, 0.12)
     end
     local function update(input)
+        if not cleanup:IsAlive() or track.AbsoluteSize.X<=0 then return end
         local ratio = math.clamp((input.Position.X-track.AbsolutePosition.X)/track.AbsoluteSize.X,0,1)
         state:Set(math.floor((min+(max-min)*ratio)/increment+0.5)*increment)
     end
-    track.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging=true; update(input) end end)
-    UserInputService.InputChanged:Connect(function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then update(input) end end)
-    UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging=false end end)
-    state.Changed:Connect(function(value) render(value); Utility.SafeCallback(options.Callback,value) end)
+    cleanup:Add(track.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging=true; update(input) end end))
+    cleanup:Add(UserInputService.InputChanged:Connect(function(input) if dragging and cleanup:IsAlive() and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then update(input) end end))
+    cleanup:Add(UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging=false end end))
+    cleanup:Add(state.Changed:Connect(function(value) if cleanup:IsAlive() then render(value); Utility.SafeCallback(options.Callback,value) end end))
+    cleanup:Add(function() dragging=false; Animation.Cancel(fill) end)
     render(state:Get())
-    return Base.Handle(row,state)
+    return Base.Handle(row,state,cleanup)
 end

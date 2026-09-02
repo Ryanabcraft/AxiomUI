@@ -2,20 +2,40 @@ local HttpService=game:GetService("HttpService")
 local Config={}; Config.__index=Config
 
 function Config.new(namespace)
-    return setmetatable({Namespace=namespace or "Axiom",Values={},Profiles={},AutoSave=false,AutoSaveProfile="default",_connections={}},Config)
+    return setmetatable({Namespace=namespace or "Axiom",Values={},Profiles={},AutoSave=false,AutoSaveProfile="default",_connections={},_destroyed=false},Config)
 end
 
 function Config:Register(key,control)
+    if self._destroyed then return control end
+    if self._connections[key] then self._connections[key]:Disconnect() end
     self.Values[key]=control
     if control.Changed then
         self._connections[key]=control.Changed:Connect(function()
             if self.AutoSave then
                 local revision=tick(); self._pendingRevision=revision
-                task.delay(0.35,function() if self._pendingRevision==revision then self:Save(self.AutoSaveProfile) end end)
+                task.delay(0.35,function() if not self._destroyed and self._pendingRevision==revision then self:Save(self.AutoSaveProfile) end end)
+            end
+        end)
+    end
+    if control._OnDestroy then
+        control:_OnDestroy(function()
+            if self.Values[key]==control then
+                self.Values[key]=nil
+                if self._connections[key] then self._connections[key]:Disconnect(); self._connections[key]=nil end
             end
         end)
     end
     return control
+end
+
+function Config:Destroy()
+    if self._destroyed then return end
+    self._destroyed=true
+    self.AutoSave=false
+    self._pendingRevision=nil
+    for key,connection in pairs(self._connections) do connection:Disconnect(); self._connections[key]=nil end
+    table.clear(self.Values)
+    table.clear(self.Profiles)
 end
 
 function Config:EnableAutoSave(enabled,profile)
@@ -46,6 +66,7 @@ function Config:LoadTable(data)
 end
 
 function Config:Save(profile)
+    if self._destroyed then return nil end
     profile=profile or "default"; local data=self:Serialize(); self.Profiles[profile]=data
     if writefile then
         if makefolder then pcall(makefolder,self.Namespace) end
@@ -55,6 +76,7 @@ function Config:Save(profile)
 end
 
 function Config:Load(profile)
+    if self._destroyed then return false end
     profile=profile or "default"; local data=self.Profiles[profile]
     if not data and readfile and isfile and isfile(self.Namespace.."/"..profile..".json") then
         local ok,result=pcall(function() return HttpService:JSONDecode(readfile(self.Namespace.."/"..profile..".json")) end)

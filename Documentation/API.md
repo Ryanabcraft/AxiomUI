@@ -4,7 +4,7 @@
 
 ### `Axiom:CreateWindow(options)`
 
-Creates a desktop-style window. Options: `Title`, `Subtitle`, `Theme`, `Size`, `Acrylic`, and `Blur`.
+Creates a desktop-style window. Options: `Title`, `Subtitle`, `Theme`, `Size`, `Acrylic`, and `Blur`. `Acrylic` controls the window surface transparency. `Blur` adds depth to that local surface only; it never creates or changes a `BlurEffect`, `Lighting`, or `CurrentCamera` object.
 
 ### `Axiom:SetTheme(theme)`
 
@@ -20,7 +20,7 @@ Creates a toast. Options: `Title`, `Description`, `Duration`, and `Color`.
 
 ### `Axiom:Destroy()`
 
-Removes all Axiom UI and its blur effect.
+Removes all Axiom UI, listeners, pending tasks, and active animations.
 
 ## Window
 

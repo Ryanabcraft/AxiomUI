@@ -5,6 +5,7 @@ local Base = require(script.Parent.Base)
 
 return function(context, parent, options)
     options = options or {}
+    local cleanup=Base.Cleanup()
     local theme = context.Theme.Current
     local state = State.new(options.Default == true)
     local row = Base.Row(context, parent, options, 54)
@@ -22,8 +23,9 @@ return function(context, parent, options)
         Animation.Tween(button, { BackgroundColor3 = value and context.Theme.Current.Primary or context.Theme.Current.SurfaceHover })
         Animation.Tween(knob, { Position = UDim2.new(0, value and 30 or 12, 0.5, 0), BackgroundColor3 = value and Color3.new(1,1,1) or context.Theme.Current.TextMuted })
     end
-    state.Changed:Connect(function(value) render(value); Utility.SafeCallback(options.Callback, value) end)
-    button.Activated:Connect(function() state:Set(not state:Get()) end)
+    cleanup:Add(state.Changed:Connect(function(value) if cleanup:IsAlive() then render(value); Utility.SafeCallback(options.Callback, value) end end))
+    cleanup:Add(button.Activated:Connect(function() if cleanup:IsAlive() then state:Set(not state:Get()) end end))
+    cleanup:Add(function() Animation.Cancel(button); Animation.Cancel(knob) end)
     render(state:Get())
-    return Base.Handle(row, state)
+    return Base.Handle(row,state,cleanup)
 end
