@@ -753,7 +753,7 @@ local function getReopenPillLayout(metrics)
 end
 
 local function makeDraggable(window, frame, handle)
-    local dragging, dragInput, startInput, startCenter=false,nil,nil,nil
+    local dragging, dragInput, startInput, startPosition=false,nil,nil,nil
     local conns={}
     conns[1]=handle.InputBegan:Connect(function(input)
         if dragging then return end
@@ -762,21 +762,21 @@ local function makeDraggable(window, frame, handle)
             window:_CommitScale()
             dragging=true
             dragInput=input
-            startInput=input.Position
-            startCenter=frame.AbsolutePosition+frame.AbsoluteSize/2
+            startInput=Vector2.new(input.Position.X,input.Position.Y)
+            startPosition=frame.Position
         end
     end)
     conns[2]=UserInputService.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then
             if dragInput.UserInputType==Enum.UserInputType.Touch and input~=dragInput then return end
             if window._WindowState.Maximized and not window._WindowState.Minimized then return end
-            local delta=input.Position-startInput
+            local delta=Vector2.new(input.Position.X,input.Position.Y)-startInput
             local metrics=getResponsiveMetrics(window.UserScale,window.ReferenceSize)
             local halfSize=frame.AbsoluteSize/2
             local minX,maxX=metrics.Left+halfSize.X,metrics.Right-halfSize.X
             local minY,maxY=metrics.Top+halfSize.Y,metrics.Bottom-halfSize.Y
-            local x=minX<=maxX and math.clamp(startCenter.X+delta.X,minX,maxX) or metrics.Left+metrics.AvailableWidth/2
-            local y=minY<=maxY and math.clamp(startCenter.Y+delta.Y,minY,maxY) or metrics.Top+metrics.AvailableHeight/2
+            local x=minX<=maxX and math.clamp(startPosition.X.Offset+delta.X,minX,maxX) or metrics.Left+metrics.AvailableWidth/2
+            local y=minY<=maxY and math.clamp(startPosition.Y.Offset+delta.Y,minY,maxY) or metrics.Top+metrics.AvailableHeight/2
             frame.Position=UDim2.fromOffset(math.round(x),math.round(y))
             window._HasCustomPosition=true
             if window._WindowState.Minimized then
@@ -796,7 +796,7 @@ local function makeDraggable(window, frame, handle)
         if input==dragInput then dragging=false; dragInput=nil end
     end)
     for _,c in ipairs(conns) do window._Cleanup:Add(c) end
-    window._Cleanup:Add(function() dragging=false; dragInput=nil; startInput=nil; startCenter=nil end)
+    window._Cleanup:Add(function() dragging=false; dragInput=nil; startInput=nil; startPosition=nil end)
 end
 
 local function attachContainerApi(container,context,parent)
