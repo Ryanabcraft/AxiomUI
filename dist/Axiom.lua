@@ -851,24 +851,17 @@ function Window.new(context,options)
     if scaleTween then self._Cleanup:Add(scaleTween) end
     self._Cleanup:Add(function() Animation.Cancel(scale) end)
 
-    -- Exactly one outer border: a rounded 1px background shell. Using a Frame instead
-    -- of UIStroke avoids corner halos caused by stroke rasterization during UIScale.
-    local windowVisual=Utility.Create("Frame",{
-        Name="WindowVisual",Size=UDim2.fromScale(1,1),BackgroundColor3=t.Stroke,
-        BackgroundTransparency=0.42,BorderSizePixel=0,ZIndex=Z_INDEX.Background,Parent=root
-    })
-    Utility.Corner(windowVisual,UDim.new(0,WINDOW_RADIUS))
-    context.Theme:Bind(windowVisual,"BackgroundColor3","Stroke")
-
     local localBlur=options.Blur==true
     local acrylic=options.Acrylic~=false
     local visualTransparency=acrylic and math.min(0.22,t.AcrylicTransparency+0.04+(localBlur and 0.03 or 0)) or 0
     local windowClip=Utility.Create("Frame",{
-        Name="WindowClip",Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=t.Background,
-        BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=true,ZIndex=Z_INDEX.Background,Parent=windowVisual
+        Name="WindowClip",Size=UDim2.fromScale(1,1),BackgroundColor3=t.Background,
+        BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=true,ZIndex=Z_INDEX.Background,Parent=root
     })
-    Utility.Corner(windowClip,UDim.new(0,WINDOW_RADIUS-1))
+    Utility.Corner(windowClip,UDim.new(0,WINDOW_RADIUS))
+    local windowStroke=Utility.Stroke(windowClip,t.Stroke,0.52)
     context.Theme:Bind(windowClip,"BackgroundColor3","Background")
+    context.Theme:Bind(windowStroke,"Color","Stroke")
     Utility.Create("UIGradient",{
         Rotation=38,
         Color=ColorSequence.new(t.Background,Color3.fromRGB(15,16,27)),
@@ -915,7 +908,7 @@ function Window.new(context,options)
 
     self.Root=root
     self.UIScale=scale
-    self.WindowVisual=windowVisual
+    self.WindowStroke=windowStroke
     self.WindowClip=windowClip
     self.TitleBar=top
     self.TitleLabel=titleLabel
@@ -1378,7 +1371,7 @@ function Window:Close()
     if self._IsDestroyed then return end
     self._TransitionId+=1
     Animation.Tween(self.WindowClip,{BackgroundTransparency=1},0.20)
-    Animation.Tween(self.WindowVisual,{BackgroundTransparency=1},0.20)
+    Animation.Tween(self.WindowStroke,{Transparency=1},0.20)
     Animation.Tween(self.UIScale,{Scale=self.Scale*0.94},0.24)
     self:_Delay(0.25,function() self:Destroy() end)
 end
@@ -1394,7 +1387,7 @@ function Window:Destroy()
     self._Cleanup:Destroy()
     Animation.Cancel(self.Body)
     Animation.Cancel(self.WindowClip)
-    Animation.Cancel(self.WindowVisual)
+    Animation.Cancel(self.WindowStroke)
     Animation.Cancel(root)
     if root then pcall(function() root:Destroy() end) end
     if context and context.Windows then
@@ -1430,7 +1423,7 @@ function Window:Destroy()
     self.TitleLabel=nil
     self.SubtitleLabel=nil
     self.WindowClip=nil
-    self.WindowVisual=nil
+    self.WindowStroke=nil
     self.Root=nil
     self.Context=nil
     self.ReferenceSize=nil
