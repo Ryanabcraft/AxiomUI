@@ -396,7 +396,7 @@ local Dark=__require("Themes/Dark")
 local Light=__require("Themes/Light")
 local Custom=__require("Themes/Custom")
 
-local Engine={Version="1.0.3",Themes={Dark=Dark,Light=Light},Windows={}}
+local Engine={Version="1.0.4",Themes={Dark=Dark,Light=Light},Windows={}}
 Engine.__index=Engine
 
 local function resolveParent()
@@ -2378,7 +2378,7 @@ return {
 end
 
 __modules["init"]=function()
--- Axiom UI Engine 1.0.3
+-- Axiom UI Engine 1.0.4
 -- Entry point — for loadstring use dist/Axiom.lua
 local Engine=__require("Core/Engine")
 return Engine.new()

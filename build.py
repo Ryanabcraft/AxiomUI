@@ -28,5 +28,5 @@ for path in sorted(MODULES,key=lambda p:(module_id(p)=="init",module_id(p))):
     chunks.append(f'__modules["{mid}"]=function()\n{transform(mid,path.read_text(encoding="utf-8"))}\nend\n')
 chunks.append('return __require("init")\n')
 OUT.parent.mkdir(exist_ok=True)
-OUT.write_text("\n".join(chunks),encoding="utf-8")
+OUT.write_text("\n".join(chunks),encoding="utf-8",newline="\n")
 print(f"Built {OUT} ({OUT.stat().st_size} bytes, {len(MODULES)} modules)")

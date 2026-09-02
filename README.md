@@ -25,7 +25,7 @@ local Axiom=loadstring(game:HttpGet(
 ))()
 ```
 
-O bundle atual possui **113.115 bytes**. A URL de `main` acompanha o desenvolvimento; consulte [Releases](https://github.com/Ryanabcraft/AxiomUI/releases) para snapshots publicados.
+O bundle atual possui **110.727 bytes**. A URL de `main` acompanha o desenvolvimento; consulte [Releases](https://github.com/Ryanabcraft/AxiomUI/releases) para snapshots publicados.
 
 Requisitos do executor:
 
