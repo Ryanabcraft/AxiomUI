@@ -1,68 +1,157 @@
 # Axiom UI Engine — API Reference
 
+## Carregamento
+
+```lua
+local Axiom=loadstring(game:HttpGet(
+    "https://raw.githubusercontent.com/Ryanabcraft/AxiomUI/main/dist/Axiom.lua"
+))()
+```
+
+`Axiom.Version` informa a versão do engine. O objeto retornado mantém `Windows`, `Config`, `Icons`, `Theme` e a `ScreenGui` raiz enquanto estiver ativo.
+
 ## Engine
 
 ### `Axiom:CreateWindow(options)`
 
-Creates a responsive desktop-style window. Options: `Title`, `Subtitle`, `Theme`, `Size`, `Scale`, `Acrylic`, `Blur`, and `ReopenPill`. The default reference size is `500x475`, and Axiom automatically fits it to the viewport and safe area across desktop, tablet, mobile portrait, and mobile landscape. `Scale` is an optional user multiplier: `1` is the responsive default, `0.9` is 10% smaller, and `1.1` is 10% larger when the viewport has room. User scale is clamped from `0.75` to `1.25`. `Acrylic` controls the window surface transparency. `Blur` adds depth to that local surface only; it never creates or changes a `BlurEffect`, `Lighting`, or `CurrentCamera` object. `ReopenPill` defaults to `true`; closing hides the window and displays a safe-area-aware pill that restores the same window state. Set it to `false` to make the X button close and destroy the window after its exit animation.
+Cria e retorna uma Window.
+
+| Option | Tipo | Default | Descrição |
+| --- | --- | --- | --- |
+| `Title` | string | `AXIOM` | Título da janela |
+| `Subtitle` | string | `UI ENGINE` | Linha auxiliar |
+| `Theme` | string/table | tema atual | `Dark`, `Light` ou tema customizado |
+| `Size` | UDim2 | `500x475` | Tamanho lógico de referência |
+| `Scale` | number | `1` | Multiplicador entre `0.75` e `1.25` |
+| `Acrylic` | boolean | `true` | Surface translúcida |
+| `Blur` | boolean | `false` | Tratamento local adicional de profundidade |
+| `ReopenPill` | boolean | `true` | X esconde e oferece cápsula de retorno |
+
+A janela se ajusta ao viewport e à safe area. `Blur` não cria `BlurEffect`, não altera `Lighting` e não modifica `CurrentCamera`.
 
 ### `Axiom:SetTheme(theme)`
 
-Accepts `"Dark"`, `"Light"`, or a custom theme table.
+Aceita `"Dark"`, `"Light"` ou uma tabela criada com `CreateTheme`. O Theme é compartilhado pelas Windows da mesma instância Axiom.
 
 ### `Axiom:CreateTheme(overrides)`
 
-Returns a theme based on Axiom Dark with the specified token overrides.
+Retorna um tema baseado no Dark com os tokens informados sobrescritos.
 
 ### `Axiom:Notify(options)`
 
-Creates a toast. Options: `Title`, `Description`, `Duration`, and `Color`.
+Cria um toast e retorna sua instância. Options: `Title`, `Description`, `Duration` e `Color`.
 
 ### `Axiom:Destroy()`
 
-Removes all Axiom UI, listeners, pending tasks, and active animations.
-
-### `Axiom.Icons`
-
-`Axiom.Icons.Get(name)` resolves an official icon, friendly alias, numeric asset ID, or supported content URL. `Axiom.Icons.Exists(name)` checks official names and aliases. `Axiom.Icons.List()` returns a new alphabetically sorted list of official names. See the complete [icon catalog](ICONS.md).
+Destrói todas as Windows, listeners, tasks, animações, perfis em memória e a `ScreenGui`. A instância não deve ser reutilizada.
 
 ## Window
 
-| Method | Description |
+| Método | Descrição |
 | --- | --- |
-| `AddTab(options)` | Adds a sidebar tab and returns a Tab. |
-| `SelectTab(tab)` | Activates a tab. |
-| `Minimize()` | Toggles compact mode. |
-| `Hide()` | Hides the complete window and displays the reopen pill when enabled. |
-| `Show()` | Hides the reopen pill and restores the same window instance. |
-| `ToggleVisibility()` | Alternates between `Hide()` and `Show()`. |
-| `Close()` | Calls `Hide()` when `ReopenPill` is enabled; otherwise closes and destroys after the exit animation. |
-| `SetTheme(theme)` | Applies a theme to bound properties. |
-| `Destroy()` | Immediately and permanently destroys the window, reopen pill, listeners, and state. |
+| `AddTab(options)` | Cria uma Tab com `Name` e `Icon` |
+| `SelectTab(tab)` | Ativa uma Tab pertencente à Window |
+| `GetDeviceMode()` | Retorna `Desktop`, `Tablet` ou `Mobile` |
+| `Minimize()` | Alterna entre header compacto e geometria anterior |
+| `Maximize()` | Alterna entre safe area máxima e geometria anterior |
+| `Hide()` | Esconde preservando instância e estado |
+| `Show()` | Restaura a mesma instância |
+| `ToggleVisibility()` | Alterna `Hide`/`Show` |
+| `Close()` | Esconde com ReopenPill; sem pill, encerra permanentemente |
+| `SetTheme(themeTable)` | Aplica diretamente uma tabela de tema compartilhada |
+| `Destroy()` | Remove definitivamente Window, pill e listeners |
 
-## Tab and controls
+Drag aceita mouse e touch, preserva o offset inicial e faz clamp na área segura. Resize aparece em dispositivos com mouse quando a Window não está minimizada ou maximizada. Tabs excedentes usam scroll vertical e a ativa permanece visível.
 
-Every `Add...` method accepts an options table and returns a control handle.
+## Tab e containers
 
-| Method | Important options |
+`Window:AddTab({Name,Icon})` retorna uma Tab. `Icon` aceita nome Axiom, alias, ID numérico ou ContentId suportado.
+
+| Método | Retorno |
 | --- | --- |
-| `AddButton` | `Name`, `Callback` |
-| `AddToggle` | `Name`, `Default`, `Callback` |
-| `AddSlider` | `Name`, `Min`, `Max`, `Default`, `Increment`, `Suffix`, `Callback` |
-| `AddDropdown` | `Name`, `Options`, `Default`, `Multi`, `Callback` |
-| `AddInput` | `Name`, `Default`, `Placeholder`, `Validate`, `Finished`, `Callback` |
-| `AddKeybind` | `Name`, `Default`, `Callback` |
-| `AddColorPicker` | `Name`, `Default`, `Callback(color, hex)` |
-| `AddSection` | `Name`; subsequent controls enter the section |
-| `EndSection` | Returns subsequent controls to the page root |
-| `AddPanel` | Creates a bordered acrylic panel and returns a container API |
+| `Tab:Select()` | nada; ativa a própria Tab |
+| `Tab:AddColumnGroup({Ratio,Gap})` | dois containers (`left`, `right`) |
+| `AddSection({Name})` | o mesmo container, agora apontando para a Section |
+| `EndSection()` | o mesmo container, novamente na raiz |
+| `AddPanel({Name,MinHeight})` | container com a API `Add...` |
+| `AddCard(options)` | `Frame` visual |
 
-Use `local left, right = Tab:AddColumnGroup({Ratio = 0.62, Gap = 14})` to reproduce a desktop inspector layout. Both columns, and panels returned by `AddPanel`, expose the same `Add...` component methods as a tab. Column groups automatically stack vertically in mobile portrait or whenever the content region becomes too narrow.
+Column groups usam `Ratio=0.62` e `Gap=14` quando omitidos. Eles empilham em Mobile portrait ou quando o conteúdo lógico fica menor que 340 px.
 
-`Window:GetDeviceMode()` returns `"Desktop"`, `"Tablet"`, or `"Mobile"` for the current viewport.
+## Componentes
 
-Control handles expose `Get()`, `Set(value)`, `SetVisible(boolean)`, `Destroy()`, and `Changed` when stateful.
+| Método | Options principais | Retorno |
+| --- | --- | --- |
+| `AddButton` | `Name`, `Callback` | handle base |
+| `AddToggle` | `Name`, `Default`, `Callback` | handle boolean |
+| `AddSlider` | `Name`, `Min`, `Max`, `Default`, `Increment`, `Suffix`, `Callback` | handle number |
+| `AddDropdown` | `Name`, `Options`, `Default`, `Multi`, `Callback` | handle string/list |
+| `AddInput` | `Name`, `Default`, `Placeholder`, `Validate`, `Finished`, `Callback` | handle string |
+| `AddKeybind` | `Name`, `Default`, `Callback` | handle `Enum.KeyCode` |
+| `AddColorPicker` | `Name`, `Default`, `Callback(color,hex)` | handle `Color3` |
+| `AddCard` | options visuais | `Frame` |
 
-## Configuration
+### Stateful handle
 
-Register a stateful control with `Axiom.Config:Register(key, control)`. Use `Save(profile)` and `Load(profile)`. Enable debounced automatic updates with `EnableAutoSave(true, profile)`. Profiles use JSON on executors that expose filesystem functions; otherwise they remain available in memory for the current session.
+Toggle, Slider, Dropdown, Input, Keybind e ColorPicker expõem:
+
+- `Get()`
+- `Set(value)`
+- `SetVisible(boolean)`
+- `Destroy()`
+- `Changed`
+- `Instance`
+
+Button usa o handle base para `SetVisible`, `Destroy` e `Instance`, mas não possui estado ou `Changed`. Card retorna diretamente um `Frame`.
+
+## Icons
+
+### `Axiom.Icons.Get(nameOrId)`
+
+Resolve nomes oficiais, aliases, IDs numéricos e ContentIds. Nomes aceitam caixa livre, espaços, underscore, hífen e forma compacta. Falhas retornam o ícone `info`.
+
+### `Axiom.Icons.Exists(name)`
+
+Retorna `true` para nome oficial, alias ou variante normalizada. IDs e URLs customizados não fazem parte do registry e retornam `false` aqui, mesmo que `Get` os aceite.
+
+### `Axiom.Icons.List()`
+
+Retorna uma nova lista ordenada com os 247 nomes oficiais. Alterar a lista retornada não modifica o registry.
+
+Consulte [ICONS.md](ICONS.md).
+
+## Config
+
+### `Axiom.Config:Register(key,control)`
+
+Registra um handle stateful e retorna o próprio handle. A entrada é removida quando o controle é destruído.
+
+### `Axiom.Config:EnableAutoSave(enabled,profile)`
+
+Ativa/desativa autosave com debounce de 350 ms.
+
+### `Axiom.Config:Serialize()`
+
+Retorna uma tabela com os valores registrados. `Color3` e `Enum.KeyCode` recebem representação serializável.
+
+### `Axiom.Config:LoadTable(data)`
+
+Aplica uma tabela diretamente aos controles registrados.
+
+### `Axiom.Config:Save(profile)`
+
+Salva em memória e retorna a tabela serializada. Quando `writefile` existe, escreve `<namespace>/<profile>.json`.
+
+### `Axiom.Config:Load(profile)`
+
+Carrega memória primeiro e filesystem depois. Retorna `true` quando encontrou um perfil.
+
+### `Axiom.Config:Destroy()`
+
+Desconecta autosave e limpa perfis/controles em memória.
+
+## Theme tokens
+
+`Background`, `Surface`, `SurfaceAlt`, `SurfaceHover`, `Stroke`, `Text`, `TextMuted`, `Primary`, `Secondary`, `Success`, `Warning`, `Danger`, `Radius`, `Transparency` e `AcrylicTransparency`.
+
+Bindings de tema atualizam propriedades registradas pelo engine. Cores locais não vinculadas permanecem como foram criadas.

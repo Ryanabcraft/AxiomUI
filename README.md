@@ -1,217 +1,182 @@
 <div align="center">
 
-# ◆ AXIOM UI ENGINE
+# AXIOM UI ENGINE
 
-### A UI definitiva para **scripts Roblox** — Rayfield e WindUI level
+**Uma control surface responsiva para scripts Roblox.**
 
-<p>
-  <img src="https://img.shields.io/badge/version-1.0.0-8B37FF?style=for-the-badge&labelColor=0B0D14" />
-  <img src="https://img.shields.io/badge/SCRIPTS-loadstring-00DCFF?style=for-the-badge&labelColor=0B0D14" />
-  <img src="https://img.shields.io/badge/EXECUTOR-ready-FF5B7A?style=for-the-badge&labelColor=0B0D14" />
-  <img src="https://img.shields.io/badge/license-MIT-35D399?style=for-the-badge&labelColor=0B0D14" />
-</p>
+[![Pages](https://github.com/Ryanabcraft/AxiomUI/actions/workflows/pages.yml/badge.svg)](https://github.com/Ryanabcraft/AxiomUI/actions/workflows/pages.yml)
+[![Build](https://github.com/Ryanabcraft/AxiomUI/actions/workflows/release.yml/badge.svg)](https://github.com/Ryanabcraft/AxiomUI/actions/workflows/release.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-65E6A7?labelColor=090A10)](LICENSE)
+[![Icons](https://img.shields.io/badge/icons-247_Lucide-8B5CF6?labelColor=090A10)](Documentation/ICONS.md)
 
-<p>
-  <b>Feita para quem faz SCRIPT.</b><br/>
-  1 linha <code>loadstring</code> · Acrylic desktop · Sidebar inspector · Estado reativo · Temas live
-</p>
-
-<p>
-  <a href="#-uso-em-3-segundos"><b>Usar Agora</b></a> •
-  <a href="#-components">Components</a> •
-  <a href="https://ryanabcraft.github.io/AxiomUI/"><b>Site Oficial</b></a> •
-  <a href="Documentation/API.md">API</a>
-</p>
+[Site](https://ryanabcraft.github.io/AxiomUI/) · [API](Documentation/API.md) · [Ícones](Documentation/ICONS.md) · [Design system](Documentation/DESIGN_SYSTEM.md) · [Exemplos](Examples)
 
 </div>
 
 ---
 
-## ⚡ Por que Axiom vs Rayfield/WindUI?
+Axiom organiza scripts Roblox como uma aplicação compacta: window manager, sidebar com scroll, componentes stateful, layouts em colunas, temas semânticos e perfis opcionais. Tudo é distribuído como um único arquivo Luau compatível com `loadstring`.
 
-| | **Rayfield** | **WindUI** | **◆ Axiom** |
-|---|---|---|---|
-| **Foco** | Scripts ✓ | Scripts ✓ | **Scripts ✓ — 1 linha loadstring** |
-| **Visual** | Flat | Glass | **Desktop acrylic + depth** |
-| **Layout** | Coluna única | Coluna única | **Sidebar 88px + Inspector 62/38** |
-| **State** | Só callback | Só callback | **State `Get()/Set()` + `Changed`** |
-| **Temas** | Hardcoded | Configurável | **Tokens live `Theme:Bind()`** |
-| **Tamanho** | ~80KB | ~120KB | **94KB — compacto** |
-| **Motion** | Básica | Suave | **Quint 120-340ms + ripple + toast** |
-
-> **Axiom é drop-in replacement para Rayfield/WindUI.** Mesma ideia, acabamento de produto desktop. Copiar, colar e sair usando.
-
-Responsive across desktop, tablet, mobile portrait, and mobile landscape, with automatic safe-area fitting and stacked columns on narrow screens.
-
----
-
-## 🚀 Uso em 3 segundos (PARA SCRIPTS)
-
-### ✅ JEITO CERTO — Loadstring (igual Rayfield/WindUI)
-
-Cole isso no seu script/executor — **é só isso**:
+## Instalação
 
 ```lua
-local Axiom = loadstring(game:HttpGet("https://raw.githubusercontent.com/Ryanabcraft/AxiomUI/main/dist/Axiom.lua"))()
+local Axiom=loadstring(game:HttpGet(
+    "https://raw.githubusercontent.com/Ryanabcraft/AxiomUI/main/dist/Axiom.lua"
+))()
+```
 
-local Window = Axiom:CreateWindow({
-    Title = "Meu Script",
-    Subtitle = "powered by Axiom",
-    Theme = "Dark",
-    Acrylic = true,
-    Blur = true,
-    ReopenPill = true,
+O bundle atual possui **113.114 bytes**. A URL de `main` acompanha o desenvolvimento; consulte [Releases](https://github.com/Ryanabcraft/AxiomUI/releases) para snapshots publicados.
+
+Requisitos do executor:
+
+- `loadstring` e `game:HttpGet` para carregamento remoto.
+- `gethui` é usado quando disponível; `PlayerGui`/`CoreGui` são os fallbacks.
+- `writefile`, `readfile`, `isfile` e `makefolder` são opcionais e usados apenas para persistência de perfis.
+
+## Primeiro painel
+
+```lua
+local Window=Axiom:CreateWindow({
+    Title="My Hub",
+    Subtitle="AXIOM / LIVE",
+    Theme="Dark",
+    Acrylic=true,
+    Blur=true,
+    ReopenPill=true,
 })
 
-local Tab = Window:AddTab({Name="Main", Icon="home"})
-Tab:AddToggle({Name="Auto Farm", Default=false, Callback=function(v) print("Farm:", v) end})
-Tab:AddSlider({Name="Speed", Min=0, Max=100, Default=50, Suffix="%", Callback=print})
-Tab:AddButton({Name="Ativar", Callback=function()
-    Axiom:Notify({Title="Ativado!", Description="Seu script rodou."})
-end})
-```
+local Combat=Window:AddTab({Name="Combat",Icon="crosshair"})
 
-**Pronto.** Seu executor roda e a UI aparece no jogo instantaneamente.
-
-O botão X preserva a instância e abre uma cápsula discreta no topo para reabrir a mesma Window. Posição, tamanho, tab ativa e valores dos controles permanecem intactos. Use `Window:Hide()`, `Window:Show()` ou `Window:ToggleVisibility()` para controlar isso por código. `Window:Destroy()` continua sendo a remoção definitiva. Para manter o X destrutivo, crie a janela com `ReopenPill = false`.
-
-### 📦 Alternativa — Arquivo local
-
-Se seu executor suporta `writefile`/`readfile`, baixe `dist/Axiom.lua` e:
-
-```lua
-local Axiom = loadstring(readfile("Axiom.lua"))()
--- resto igual
-```
-
----
-
-## 🧩 Components — mesma API Rayfield, mais poderosa
-
-Todo `Add*` retorna handle com `Get()`, `Set(value)`, `SetVisible(bool)`, `Destroy()` e evento `Changed`.
-
-```lua
-local Tab = Window:AddTab({Name="Config", Icon="settings"})
-Tab:AddSection({Name="Farm"})
-
-local mode = Tab:AddDropdown({
-    Name="Mode", Options={"Legit","Rage","Farming"},
-    Default="Legit", Callback=function(v) print(v) end
+local enabled=Combat:AddToggle({
+    Name="Enable feature",
+    Default=false,
+    Callback=function(value)
+        print("Enabled:",value)
+    end,
 })
 
-Tab:AddDropdown({Name="Tags", Options={"Auto","Safe","Fast"}, Multi=true})
+Combat:AddSlider({
+    Name="Movement speed",
+    Min=16,
+    Max=100,
+    Default=32,
+    Increment=1,
+})
 
-Tab:AddInput({Name="Webhook", Placeholder="https://discord.com/...", Validate=function(t) return #t > 10 end})
-
-Tab:AddColorPicker({Name="Cor", Default=Color3.fromRGB(139,55,255), Callback=function(color, hex) print(hex) end})
-
-Tab:AddKeybind({Name="Abrir/Fechar", Default=Enum.KeyCode.RightShift, Callback=function() print("toggle") end})
-
-Tab:AddSlider({Name="Delay", Min=0, Max=10, Increment=0.5, Suffix="s" })
-
-Tab:EndSection()
-
--- Salvar config (opcional, igual Rayfield)
-Axiom.Config:Register("mode", mode)
-Axiom.Config:EnableAutoSave(true, "meuScript")
-Axiom.Config:Save("default") -- salva em AxiomUI/default.json se executor tiver writefile
+Axiom.Config:Register("enabled",enabled)
+Axiom:Notify({Title="Ready",Description="Axiom is running."})
 ```
 
-| Method | O que faz |
-|---|---|
-| `AddButton` | `Name`, `Callback` |
-| `AddToggle` | `Name`, `Default` (bool), `Callback(bool)` |
-| `AddSlider` | `Name`, `Min`, `Max`, `Default`, `Increment`, `Suffix` |
-| `AddDropdown` | `Name`, `Options` (lista), `Default`, `Multi` (multi-select) |
-| `AddInput` | `Name`, `Placeholder`, `Validate` |
-| `AddKeybind` | `Name`, `Default` (KeyCode), `Callback` — aperta a tecla e dispara |
-| `AddColorPicker` | `Name`, `Default` (Color3), `Callback(color, hex)` |
-| `AddSection` / `EndSection` | Agrupa controles com título |
-| `AddPanel` | Cria painel com borda — retorna container com mesma API |
-| `AddColumnGroup` | `Ratio`, `Gap` — cria 2 colunas (ex: `local Main, Side = Tab:AddColumnGroup({Ratio=0.62})`) |
+## O que está incluído
 
----
+### Window system
 
-## 🎨 Temas — troca em 1 linha
+- Drag de mouse/touch sem jump inicial e com clamp na safe area.
+- Resize desktop com limites mínimos e máximos.
+- Minimize/restore e maximize/restore preservando geometria.
+- `Hide()`, `Show()` e `ToggleVisibility()` preservando estado.
+- ReopenPill opcional e responsivo.
+- Modos Desktop, Tablet e Mobile, com escala de usuário entre `0.75` e `1.25`.
+- Sidebar de 56/72/88 px com scroll vertical e auto-scroll da tab ativa.
+- `ColumnGroup` que empilha automaticamente em telas estreitas.
+
+### Componentes
+
+| API | Retorno | Uso principal |
+| --- | --- | --- |
+| `AddButton` | handle base | Executar uma ação |
+| `AddToggle` | handle stateful | Boolean |
+| `AddSlider` | handle stateful | Número incremental |
+| `AddDropdown` | handle stateful | Seleção única ou múltipla |
+| `AddInput` | handle stateful | Texto e validação |
+| `AddKeybind` | handle stateful | `Enum.KeyCode` |
+| `AddColorPicker` | handle stateful | `Color3` e HEX |
+| `AddCard` | `Frame` | Surface visual |
+
+Handles stateful expõem `Get()`, `Set(value)`, `SetVisible(boolean)`, `Destroy()` e `Changed`. Buttons usam o mesmo handle base, mas não possuem estado ou evento `Changed`. `Section`, `Panel` e `ColumnGroup` são helpers de composição.
+
+## 247 ícones validados
+
+O registry usa uma única família Lucide linear para Roblox, com **247 nomes oficiais** e **51 aliases**. Nomes são normalizados:
 
 ```lua
-Axiom:SetTheme("Light") -- ou "Dark"
+Axiom.Icons.Get("MapPin")
+Axiom.Icons.Get("map-pin")
+Axiom.Icons.Get("map_pin")
+Axiom.Icons.Get("MAP PIN")
+-- Todos retornam o mesmo asset.
 
-local Neon = Axiom:CreateTheme({
-    Name = "Neon",
-    Primary = Color3.fromRGB(0,220,255),
-    Secondary = Color3.fromRGB(174,72,255),
-    Radius = UDim.new(0,12),
+Axiom.Icons.Exists("crosshair") -- true
+local names=Axiom.Icons.List()  -- cópia ordenada
+```
+
+IDs numéricos, `rbxassetid://`, `rbxasset://` e URLs de conteúdo continuam aceitos. Nomes desconhecidos usam o ícone `info` validado. Consulte o [catálogo completo](Documentation/ICONS.md).
+
+## Layout estruturado
+
+```lua
+local Dashboard=Window:AddTab({Name="Dashboard",Icon="layout-dashboard"})
+local Main,Inspector=Dashboard:AddColumnGroup({Ratio=0.62,Gap=14})
+
+local Controls=Main:AddPanel({Name="CONTROL SURFACE"})
+Controls:AddToggle({Name="Automation"})
+
+local Details=Inspector:AddPanel({Name="INSPECTOR"})
+Details:AddDropdown({Name="Mode",Options={"Balanced","Performance"}})
+```
+
+## Configuração
+
+```lua
+Axiom.Config:Register("mode",modeControl)
+Axiom.Config:EnableAutoSave(true,"default")
+Axiom.Config:Save("default")
+Axiom.Config:Load("default")
+```
+
+Sem filesystem, os perfis continuam disponíveis em memória durante a sessão. Consulte a [referência da API](Documentation/API.md) para `Serialize()` e `LoadTable()`.
+
+## Temas
+
+```lua
+Axiom:SetTheme("Light")
+
+local Neon=Axiom:CreateTheme({
+    Name="Neon",
+    Primary=Color3.fromRGB(0,220,255),
+    Secondary=Color3.fromRGB(174,72,255),
 })
 Axiom:SetTheme(Neon)
 ```
 
-Tokens: `Background`, `Surface`, `SurfaceAlt`, `Stroke`, `Text`, `Primary`, `Secondary`.
+`Acrylic` cria surfaces translúcidas inspiradas em acrylic. `Blur` ajusta o tratamento local de profundidade; Axiom não cria `BlurEffect` em `Lighting` nem altera a câmera.
 
----
+## API de Window
 
-## 🔔 Notificação (toast)
+`AddTab`, `SelectTab`, `GetDeviceMode`, `Minimize`, `Maximize`, `Hide`, `Show`, `ToggleVisibility`, `Close`, `SetTheme` e `Destroy`.
 
-```lua
-Axiom:Notify({
-    Title="Farm completo!",
-    Description="Você ganhou 1,250 coins.",
-    Duration=4,
-    Color=Color3.fromRGB(139,55,255)
-})
+## Desenvolvimento
+
+```bash
+python build.py
 ```
 
----
+O build reúne os módulos de `Core`, `Components`, `Services` e `Themes` em `dist/Axiom.lua`. Exemplos não entram no bundle.
 
-## 💡 Exemplo completo — estilo WindUI/Rayfield
-
-```lua
-local Axiom = loadstring(game:HttpGet("https://raw.githubusercontent.com/Ryanabcraft/AxiomUI/main/dist/Axiom.lua"))()
-
-local Window = Axiom:CreateWindow({Title="Meu Hub", Subtitle="v1.0 · Axiom", Theme="Dark", Acrylic=true, Blur=true})
-local Main = Window:AddTab({Name="Main", Icon="home"})
-local Left, Right = Main:AddColumnGroup({Ratio=0.62, Gap=14})
-
-local Controls = Left:AddPanel({Name="CONTROL SURFACE"})
-Controls:AddToggle({Name="Auto Farm", Default=false, Callback=function(v) _G.Farm=v end})
-Controls:AddSlider({Name="Speed", Min=16, Max=100, Default=32, Suffix=" walkspeed"})
-Controls:AddDropdown({Name="Mode", Options={"Balanced","Performance","Quality"}, Default="Balanced"})
-
-local Visual = Right:AddPanel({Name="VISUAL"})
-Visual:AddColorPicker({Name="Accent", Default=Color3.fromRGB(139,55,255)})
-Visual:AddKeybind({Name="Toggle UI", Default=Enum.KeyCode.RightShift})
-
-Axiom:Notify({Title="Axiom carregada!", Description="Pronto para usar."})
+```text
+Core/           Engine, Window, Theme, State e Events
+Components/     Componentes e handles
+Services/       Animation, Cleanup, Config, Icons e Utility
+Themes/         Dark, Light e Custom
+Documentation/  API, catálogo de ícones e design system
+Examples/       Showcase e validação de integridade
+docs/           Site estático publicado no GitHub Pages
 ```
 
----
+## Compatibilidade
 
-## ❓ FAQ para scripters
+Axiom oferece uma API familiar para quem já construiu hubs com outras bibliotecas Roblox, mas **não é uma implementação drop-in** de Rayfield ou WindUI. Opções, retornos e recursos devem seguir a documentação Axiom.
 
-**Funciona em qual executor?** Qualquer um que tenha `loadstring` + `game:HttpGet` (Synapse, Fluxus, Hydrogen, etc). Testado com `gethui` fallback.
+## Licença
 
-**Como hospedar?** O arquivo já está hospedado no GitHub raw. Só usar a URL. Se quiser, hospede `dist/Axiom.lua` no seu próprio raw/gist.
-
-**É pesada?** Não — o bundle atual tem 94KB com window manager, 8 controles, temas, profiles e animações.
-
----
-
-## 🛣 Roadmap
-
-- **v1.1** — modal, command palette, ColorPicker HSV melhor
-- **v1.2** — plugin registry, slots, localização
-- **v2.0** — renderer declarativo
-
----
-
-## 📄 Licença
-
-MIT © 2026 Axiom contributors — Use em qualquer script, hub, loader. Só mantém o crédito.
-
-<div align="center">
-
-**[ ◆ Site → ryanabcraft.github.io/AxiomUI ]** • **[ Raw → dist/Axiom.lua ]** • **[ API Docs ]**
-
-*Curtiu? Deixa a ★ no repo — ajuda o projeto crescer.*
-
-</div>
+[MIT](LICENSE). Cópias ou porções substanciais devem preservar o aviso de copyright e permissão incluído na licença.

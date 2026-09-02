@@ -2,7 +2,7 @@ local Axiom=loadstring(game:HttpGet("https://raw.githubusercontent.com/Ryanabcra
 
 local Window=Axiom:CreateWindow({
     Title="Axiom Control Center", Subtitle="PREMIUM INTERFACE · v1.0", Theme="Dark",
-    Acrylic=true, Blur=true, Size=UDim2.fromOffset(780,510),
+    Acrylic=true, Blur=true, ReopenPill=true, Size=UDim2.fromOffset(780,510),
 })
 
 local Dashboard=Window:AddTab({Name="Dashboard",Icon="home"})
@@ -16,7 +16,9 @@ Controls:AddButton({Name="Run Action",Callback=function() Axiom:Notify({Title="A
 local Appearance=Inspector:AddPanel({Name="APPEARANCE",MinHeight=340})
 Appearance:AddDropdown({Name="Preset",Options={"Axiom","Midnight","Electric"},Default="Axiom"})
 Appearance:AddColorPicker({Name="Accent",Default=Color3.fromRGB(139,55,255)})
-Appearance:AddButton({Name="Apply appearance"})
+Appearance:AddButton({Name="Apply appearance",Callback=function()
+    Axiom:Notify({Title="Appearance applied",Description="The active preset is ready."})
+end})
 
 local Settings=Window:AddTab({Name="Configuration",Icon="settings"})
 Settings:AddSection({Name="Preferences"})
@@ -32,5 +34,12 @@ Axiom.Config:Register("tags",tags)
 Axiom.Config:Register("profileName",name)
 Axiom.Config:Register("accent",accent)
 Axiom.Config:Register("toggleKey",key)
+Axiom.Config:EnableAutoSave(true,"showcase")
+
+local Icons=Window:AddTab({Name="Icons",Icon="sparkles"})
+local IconPanel=Icons:AddPanel({Name="ICON SYSTEM"})
+IconPanel:AddButton({Name=string.format("Browse %d validated icons",#Axiom.Icons.List()),Callback=function()
+    print(table.concat(Axiom.Icons.List(),", "))
+end})
 
 Axiom:Notify({Title="Welcome to Axiom",Description="Your premium workspace is ready.",Duration=5})

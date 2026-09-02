@@ -1,6 +1,6 @@
 # Axiom Icons
 
-Axiom ships a curated Roblox build of the Lucide linear icon family. The registry is lookup-only: loading Axiom does not create or preload an instance for each icon.
+Axiom ships **247 official icons and 51 friendly aliases** from a curated Roblox build of the [Lucide](https://lucide.dev/) linear icon family. Lucide is distributed under the ISC license. The registry is lookup-only: loading Axiom does not create or preload an instance for each icon.
 
 ```lua
 local Tab=Window:AddTab({
@@ -18,7 +18,13 @@ Window:AddTab({Name="Custom",Icon=123456789})
 Window:AddTab({Name="Custom",Icon="rbxassetid://123456789"})
 ```
 
-Use `Axiom.Icons.Exists(name)` to check a name and `Axiom.Icons.List()` to receive a new, alphabetically sorted list of official names. Unknown names always resolve to the validated `info` fallback.
+Use `Axiom.Icons.Exists(name)` to check an official name or alias and `Axiom.Icons.List()` to receive a new, alphabetically sorted list of official names. `Exists` intentionally returns `false` for custom IDs and URLs because they are not registry entries. Unknown names always resolve to the validated `info` fallback.
+
+```lua
+for _,name in ipairs(Axiom.Icons.List()) do
+    print(name,Axiom.Icons.Get(name))
+end
+```
 
 ## General
 
