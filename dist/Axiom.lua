@@ -574,7 +574,8 @@ local Components={
 }
 local Window={}; Window.__index=Window
 
-local HEADER_HEIGHT=66
+local HEADER_HEIGHT=58
+local WINDOW_RADIUS=14
 local MIN_WIDTH=620
 local MIN_HEIGHT=400
 local TWEEN_MINIMIZE=0.22
@@ -591,16 +592,20 @@ local function makeDraggable(window, frame, handle)
     local dragging, startInput, startPos=false,nil,nil
     local conns={}
     conns[1]=handle.InputBegan:Connect(function(input)
-        if window._WindowState.Minimized or window._WindowState.Maximized then return end
+        if window._WindowState.Maximized and not window._WindowState.Minimized then return end
         if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
             dragging=true; startInput=input.Position; startPos=frame.Position
         end
     end)
     conns[2]=UserInputService.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then
-            if window._WindowState.Minimized or window._WindowState.Maximized then return end
+            if window._WindowState.Maximized and not window._WindowState.Minimized then return end
             local delta=input.Position-startInput
             frame.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+delta.X,startPos.Y.Scale,startPos.Y.Offset+delta.Y)
+            if window._WindowState.Minimized and not window._WindowState.PreMinimizeMaximized then
+                window._WindowState.PreviousPosition=frame.Position
+                window.OriginalPosition=frame.Position
+            end
         end
     end)
     conns[3]=UserInputService.InputEnded:Connect(function(input)
@@ -657,55 +662,55 @@ function Window.new(context,options)
     },Window)
     local t=context.Theme.Current
 
-    -- ROOT: outer frame with corner+stroke, NO ClipsDescendants (clip via inner)
+    -- ROOT is interaction/layout only. Keeping it fully transparent prevents a square
+    -- acrylic layer from appearing below the rounded visual container.
     local root=Utility.Create("Frame",{
         Name="AxiomWindow",AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),
-        Size=options.Size or UDim2.fromOffset(820,520),BackgroundColor3=t.Background,
-        BackgroundTransparency=options.Acrylic==false and 0 or t.AcrylicTransparency,
+        Size=options.Size or UDim2.fromOffset(820,520),BackgroundTransparency=1,
         BorderSizePixel=0,ClipsDescendants=false,Parent=context.Gui,
     })
-    Utility.Corner(root,UDim.new(0,18))
-    local outerStroke=Utility.Stroke(root,t.Stroke,0.18,1)
-    context.Theme:Bind(root,"BackgroundColor3","Background")
+    local scale=Utility.Create("UIScale",{Scale=0.965,Parent=root})
+    Animation.Tween(scale,{Scale=1},0.34)
+
+    -- WINDOW CLIP owns every visual layer, so background, gradient and children all
+    -- share the same clipping radius with no square frame underneath.
+    local windowClip=Utility.Create("Frame",{
+        Name="WindowClip",Size=UDim2.fromScale(1,1),BackgroundColor3=t.Background,
+        BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=true,Parent=root
+    })
+    Utility.Corner(windowClip,UDim.new(0,WINDOW_RADIUS))
+    local outerStroke=Utility.Stroke(windowClip,t.Stroke,0.18,1)
+    context.Theme:Bind(windowClip,"BackgroundColor3","Background")
     context.Theme:Bind(outerStroke,"Color","Stroke")
     Utility.Create("UIGradient",{
         Rotation=38,
         Color=ColorSequence.new(t.Background,Color3.fromRGB(15,16,27)),
         Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0),NumberSequenceKeypoint.new(0.62,0.04),NumberSequenceKeypoint.new(1,0)}),
-        Parent=root,
+        Parent=windowClip,
     })
-    local scale=Utility.Create("UIScale",{Scale=0.965,Parent=root})
-    Animation.Tween(scale,{Scale=1},0.34)
-    root.BackgroundTransparency=1
-    Animation.Tween(root,{BackgroundTransparency=options.Acrylic==false and 0 or t.AcrylicTransparency},0.3)
-
-    -- WINDOW CLIP: inner container que garante cantos perfeitos
-    local windowClip=Utility.Create("Frame",{
-        Name="WindowClip",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=true,Parent=root
-    })
-    Utility.Corner(windowClip,UDim.new(0,18))
+    Animation.Tween(windowClip,{BackgroundTransparency=options.Acrylic==false and 0 or t.AcrylicTransparency},0.3)
 
     -- TITLE BAR (Header) - dentro do clip, cantos arredondados via parent clip
     local top=Utility.Create("Frame",{Name="TitleBar",Size=UDim2.new(1,0,0,HEADER_HEIGHT),BackgroundColor3=t.Surface,BackgroundTransparency=0.58,BorderSizePixel=0,Parent=windowClip})
     Utility.Create("Frame",{AnchorPoint=Vector2.new(0,1),Position=UDim2.fromScale(0,1),Size=UDim2.new(1,0,0,1),BackgroundColor3=t.Stroke,BackgroundTransparency=0.5,BorderSizePixel=0,Parent=top})
-    local logo=Utility.Create("Frame",{Position=UDim2.fromOffset(20,16),Size=UDim2.fromOffset(34,34),BackgroundColor3=t.Primary,BorderSizePixel=0,Parent=top})
+    local logo=Utility.Create("Frame",{Position=UDim2.fromOffset(18,14),Size=UDim2.fromOffset(30,30),BackgroundColor3=t.Primary,BorderSizePixel=0,Parent=top})
     Utility.Corner(logo,UDim.new(1,0))
     Utility.Create("UIGradient",{Rotation=135,Color=ColorSequence.new(t.Primary,Color3.fromRGB(36,39,59)),Parent=logo})
     Utility.Stroke(logo,Color3.new(1,1,1),0.76)
-    Utility.Create("TextLabel",{Position=UDim2.fromOffset(66,12),Size=UDim2.new(1,-240,0,22),BackgroundTransparency=1,Font=Enum.Font.GothamBold,Text=options.Title or "AXIOM",TextColor3=t.Text,TextSize=14,TextXAlignment=Enum.TextXAlignment.Left,Parent=top})
-    Utility.Create("TextLabel",{Position=UDim2.fromOffset(66,33),Size=UDim2.new(1,-240,0,17),BackgroundTransparency=1,Font=Enum.Font.Gotham,Text=options.Subtitle or "UI ENGINE",TextColor3=t.TextMuted,TextSize=9,TextXAlignment=Enum.TextXAlignment.Left,Parent=top})
+    Utility.Create("TextLabel",{Position=UDim2.fromOffset(58,9),Size=UDim2.new(1,-220,0,21),BackgroundTransparency=1,Font=Enum.Font.GothamBold,Text=options.Title or "AXIOM",TextColor3=t.Text,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,Parent=top})
+    Utility.Create("TextLabel",{Position=UDim2.fromOffset(58,29),Size=UDim2.new(1,-220,0,16),BackgroundTransparency=1,Font=Enum.Font.Gotham,Text=options.Subtitle or "UI ENGINE",TextColor3=t.TextMuted,TextSize=9,TextXAlignment=Enum.TextXAlignment.Left,Parent=top})
 
     local function topButton(text,x,callback,color)
-        local button=Utility.Create("TextButton",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,x,0,16),Size=UDim2.fromOffset(34,34),BackgroundColor3=t.SurfaceAlt,BackgroundTransparency=0.22,BorderSizePixel=0,AutoButtonColor=false,Font=Enum.Font.GothamBold,Text=text,TextColor3=color or t.TextMuted,TextSize=15,Parent=top})
+        local button=Utility.Create("TextButton",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,x,0,13),Size=UDim2.fromOffset(32,32),BackgroundColor3=t.SurfaceAlt,BackgroundTransparency=0.22,BorderSizePixel=0,AutoButtonColor=false,Font=Enum.Font.GothamBold,Text=text,TextColor3=color or t.TextMuted,TextSize=14,Parent=top})
         Utility.Corner(button,UDim.new(0,8)); Utility.Stroke(button,t.Stroke,0.68)
         button.MouseEnter:Connect(function() Animation.Tween(button,{BackgroundColor3=t.SurfaceHover,TextColor3=color or t.Text}) end)
         button.MouseLeave:Connect(function() Animation.Tween(button,{BackgroundColor3=t.SurfaceAlt,TextColor3=color or t.TextMuted}) end)
         button.Activated:Connect(callback)
         return button
     end
-    topButton("—",-100,function() self:Minimize() end,t.Primary)
-    topButton("□",-58,function() self:Maximize() end,t.Secondary)
-    topButton("×",-16,function() self:Close() end,Color3.fromRGB(187,91,255))
+    topButton("—",-94,function() self:Minimize() end,t.Primary)
+    topButton("□",-56,function() self:Maximize() end,t.Secondary)
+    topButton("×",-18,function() self:Close() end,Color3.fromRGB(187,91,255))
 
     -- BODY: CanvasGroup para fade controlado no minimize
     local body=Utility.Create("CanvasGroup",{Name="Body",Position=UDim2.fromOffset(0,HEADER_HEIGHT),Size=UDim2.new(1,0,1,-HEADER_HEIGHT),BackgroundTransparency=1,BorderSizePixel=0,GroupTransparency=0,Parent=windowClip})
@@ -992,7 +997,8 @@ function Window:Close()
         Animation.Tween(self._Blur,{Size=0},0.18)
         task.delay(0.20,function() if self._Blur then pcall(function() self._Blur:Destroy() end) self._Blur=nil end end)
     end
-    Animation.Tween(self.Root,{BackgroundTransparency=1,Size=UDim2.fromOffset(self.Root.AbsoluteSize.X*0.94,self.Root.AbsoluteSize.Y*0.94)},0.24)
+    Animation.Tween(self.WindowClip,{BackgroundTransparency=1},0.20)
+    Animation.Tween(self.Root,{Size=UDim2.fromOffset(self.Root.AbsoluteSize.X*0.94,self.Root.AbsoluteSize.Y*0.94)},0.24)
     task.delay(0.25,function() self:Destroy() end)
 end
 
