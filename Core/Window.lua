@@ -356,8 +356,14 @@ function Window.new(context,options)
         BottomLeftRadius=UDim.new(0,WINDOW_RADIUS),BottomRightRadius=UDim.new(0,0),Parent=sidebar,
     })
     Utility.Create("Frame",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,12),Size=UDim2.new(0,1,1,-24),BackgroundColor3=t.Stroke,BackgroundTransparency=0.52,BorderSizePixel=0,Parent=sidebar})
-    local tabList=Utility.Create("Frame",{Position=UDim2.fromOffset(15,18),Size=UDim2.new(1,-30,1,-92),BackgroundTransparency=1,Parent=sidebar})
-    Utility.Create("UIListLayout",{Padding=UDim.new(0,9),HorizontalAlignment=Enum.HorizontalAlignment.Center,Parent=tabList})
+    local tabList=Utility.Create("ScrollingFrame",{
+        Position=UDim2.fromOffset(15,18),Size=UDim2.new(1,-30,1,-92),BackgroundTransparency=1,BorderSizePixel=0,
+        CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollingDirection=Enum.ScrollingDirection.Y,
+        ElasticBehavior=Enum.ElasticBehavior.WhenScrollable,ScrollingEnabled=true,ClipsDescendants=true,
+        ScrollBarThickness=2,ScrollBarImageColor3=t.Stroke,ScrollBarImageTransparency=0.55,Parent=sidebar,
+    })
+    context.Theme:Bind(tabList,"ScrollBarImageColor3","Stroke")
+    local tabLayout=Utility.Create("UIListLayout",{Padding=UDim.new(0,9),HorizontalAlignment=Enum.HorizontalAlignment.Center,Parent=tabList})
     -- Content dentro do Body, com offset correto (22px abaixo do header)
     local content=Utility.Create("Frame",{Position=UDim2.fromOffset(110,22),Size=UDim2.new(1,-132,1,-44),BackgroundTransparency=1,ZIndex=Z_INDEX.Content,Parent=body})
 
@@ -412,6 +418,7 @@ function Window.new(context,options)
     self.Body=body
     self.Sidebar=sidebar
     self.TabList=tabList
+    self.TabLayout=tabLayout
     self.Content=content
     self.OverlayLayer=overlayLayer
     self.TooltipLayer=tooltipLayer
@@ -427,6 +434,12 @@ function Window.new(context,options)
     self.OriginalPosition=root.Position
     self._WindowState.PreviousSize=root.Size
     self._WindowState.PreviousPosition=root.Position
+    local function keepActiveTabVisible()
+        if self.ActiveTab then self:_EnsureTabVisible(self.ActiveTab,false) end
+    end
+    self._Cleanup:Add(tabList:GetPropertyChangedSignal("AbsoluteSize"):Connect(keepActiveTabVisible))
+    self._Cleanup:Add(tabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(keepActiveTabVisible))
+    self._Cleanup:Add(function() Animation.Cancel(tabList) end)
     makeDraggable(self,root,top)
 
     -- RESIZE HANDLE: completamente invisível, dentro do clip, sem artefato quadrado
@@ -548,6 +561,28 @@ function Window:GetDeviceMode()
     return self.DeviceMode
 end
 
+function Window:_EnsureTabVisible(tab,animate)
+    local list=self.TabList
+    local button=tab and tab.Button
+    if self._IsDestroyed or not list or not list.Parent or not button or not button.Parent then return end
+    local viewportTop=list.AbsolutePosition.Y
+    local viewportBottom=viewportTop+list.AbsoluteSize.Y
+    local buttonTop=button.AbsolutePosition.Y
+    local buttonBottom=buttonTop+button.AbsoluteSize.Y
+    local scale=self.UIScale and self.UIScale.Scale or 1
+    if scale<=0 then scale=1 end
+    local targetY=list.CanvasPosition.Y
+    if buttonTop<viewportTop then
+        targetY+=(buttonTop-viewportTop)/scale
+    elseif buttonBottom>viewportBottom then
+        targetY+=(buttonBottom-viewportBottom)/scale
+    end
+    targetY=math.max(0,targetY)
+    if math.abs(targetY-list.CanvasPosition.Y)<0.5 then return end
+    local target=Vector2.new(0,targetY)
+    if animate then Animation.Tween(list,{CanvasPosition=target},0.16) else Animation.Cancel(list); list.CanvasPosition=target end
+end
+
 function Window:_UpdateColumnGroups()
     local contentWidth=self._ContentLogicalWidth or 0
     if contentWidth<=0 and self.Content and self.Content.AbsoluteSize.X>0 and self.UIScale and self.UIScale.Scale>0 then
@@ -609,6 +644,7 @@ function Window:_UpdateDeviceLayout(metrics,logicalSize)
     end
     self.ResizeHandle.Visible=not metrics.PureTouch and not self._WindowState.Minimized and not self._WindowState.Maximized
     self:_UpdateColumnGroups()
+    if self.ActiveTab then self:_EnsureTabVisible(self.ActiveTab,false) end
 end
 
 function Window:_GetMaximizedBounds()
@@ -773,6 +809,7 @@ function Window:SelectTab(tab)
         Animation.Tween(item.Icon,{ImageColor3=active and Color3.new(1,1,1) or self.Context.Theme.Current.TextMuted})
     end
     self.ActiveTab=tab
+    self:_EnsureTabVisible(tab,true)
 end
 
 function Window:_DoMinimize()
@@ -1048,6 +1085,7 @@ function Window:Destroy()
     self.Body=nil
     self.Sidebar=nil
     self.TabList=nil
+    self.TabLayout=nil
     self.Content=nil
     self.OverlayLayer=nil
     self.TooltipLayer=nil
