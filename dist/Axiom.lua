@@ -622,11 +622,16 @@ local Window={}; Window.__index=Window
 
 local HEADER_HEIGHT=58
 local WINDOW_RADIUS=14
-local MIN_WIDTH=620
-local MIN_HEIGHT=400
-local DEFAULT_UI_SCALE=0.62
-local MIN_UI_SCALE=0.45
-local MAX_UI_SCALE=1.25
+local REFERENCE_VISUAL_WIDTH=500
+local REFERENCE_VISUAL_HEIGHT=475
+local DEFAULT_USER_SCALE=1
+local MIN_USER_SCALE=0.75
+local MAX_USER_SCALE=1.25
+local MIN_RESIZE_WIDTH=420
+local MIN_RESIZE_HEIGHT=360
+local MOBILE_BREAKPOINT=600
+local DESKTOP_BREAKPOINT=900
+local MOBILE_MIN_RENDER_SCALE=0.85
 local TWEEN_MINIMIZE=0.22
 local TWEEN_RESTORE=0.26
 local TWEEN_MAXIMIZE=0.30
@@ -654,43 +659,121 @@ local function offsetPosition(position,x,y)
     return UDim2.new(position.X.Scale,position.X.Offset+x,position.Y.Scale,position.Y.Offset+y)
 end
 
-local function getMaximizedBounds(uiScale)
+local function resolveReferenceSize(size,viewport)
+    return Vector2.new(
+        viewport.X*size.X.Scale+size.X.Offset,
+        viewport.Y*size.Y.Scale+size.Y.Offset
+    )
+end
+
+local function getResponsiveMetrics(userScale,referenceSize)
     local viewport=getViewportSize()
     local topLeft,bottomRight=Vector2.zero,Vector2.zero
     pcall(function() topLeft,bottomRight=GuiService:GetGuiInset() end)
-    local left=math.max(24,topLeft.X+12)
-    local top=math.max(24,topLeft.Y+12)
-    local right=math.max(24,bottomRight.X+12)
-    local bottom=math.max(24,bottomRight.Y+12)
-    local width=math.max(MIN_WIDTH,(viewport.X-left-right)/uiScale)
-    local height=math.max(MIN_HEIGHT,(viewport.Y-top-bottom)/uiScale)
-    return UDim2.fromOffset(math.round(width),math.round(height)),UDim2.fromOffset(math.round(left+width*uiScale/2),math.round(top+height*uiScale/2))
+    local safeMin,safeMax=Vector2.zero,viewport
+    pcall(function()
+        local area=GuiService:GetInsetArea(Enum.ScreenInsets.DeviceSafeInsets)
+        local min=Vector2.new(math.max(0,area.Min.X),math.max(0,area.Min.Y))
+        local max=Vector2.new(math.min(viewport.X,area.Max.X),math.min(viewport.Y,area.Max.Y))
+        if max.X>min.X and max.Y>min.Y then safeMin,safeMax=min,max end
+    end)
+    local pureTouch=UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+    local mobile=viewport.X<MOBILE_BREAKPOINT or (UserInputService.TouchEnabled and viewport.Y<MOBILE_BREAKPOINT)
+    local mode=mobile and "Mobile" or (viewport.X<DESKTOP_BREAKPOINT and "Tablet" or "Desktop")
+    local margin=mode=="Desktop" and 24 or (mode=="Tablet" and 16 or 12)
+    local left=math.max(topLeft.X,safeMin.X)+margin
+    local top=math.max(topLeft.Y,safeMin.Y)+margin
+    local right=math.max(bottomRight.X,viewport.X-safeMax.X)+margin
+    local bottom=math.max(bottomRight.Y,viewport.Y-safeMax.Y)+margin
+    local availableWidth=math.max(1,viewport.X-left-right)
+    local availableHeight=math.max(1,viewport.Y-top-bottom)
+    local reference=resolveReferenceSize(referenceSize,viewport)
+    local finalScale
+    local logicalWidth
+    local logicalHeight
+
+    if mode=="Mobile" then
+        local portrait=viewport.Y>=viewport.X
+        local baseVisualWidth=portrait and availableWidth or math.min(reference.X,availableWidth)
+        local baseVisualHeight=portrait and math.min(reference.Y,availableHeight*0.86) or math.min(reference.Y,availableHeight)
+        local visualWidth=math.min(availableWidth,baseVisualWidth*userScale)
+        local visualHeight=math.min(availableHeight,baseVisualHeight*userScale)
+        finalScale=math.max(MOBILE_MIN_RENDER_SCALE,userScale)
+        logicalWidth=visualWidth/finalScale
+        logicalHeight=visualHeight/finalScale
+    else
+        local fitScale=math.min(1,availableWidth/reference.X,availableHeight/reference.Y)
+        finalScale=math.min(fitScale*userScale,availableWidth/reference.X,availableHeight/reference.Y)
+        logicalWidth=reference.X
+        logicalHeight=reference.Y
+    end
+
+    local visualWidth=logicalWidth*finalScale
+    local visualHeight=logicalHeight*finalScale
+    return {
+        Mode=mode,
+        PureTouch=pureTouch,
+        Portrait=viewport.Y>=viewport.X,
+        Margin=margin,
+        Left=left,
+        Top=top,
+        Right=left+availableWidth,
+        Bottom=top+availableHeight,
+        AvailableWidth=availableWidth,
+        AvailableHeight=availableHeight,
+        Scale=finalScale,
+        LogicalSize=UDim2.fromOffset(math.round(logicalWidth),math.round(logicalHeight)),
+        VisualSize=Vector2.new(visualWidth,visualHeight),
+        CenterPosition=UDim2.fromOffset(math.round(left+availableWidth/2),math.round(top+availableHeight/2)),
+        MaximizedSize=UDim2.fromOffset(math.round(availableWidth/finalScale),math.round(availableHeight/finalScale)),
+    }
 end
 
 local function makeDraggable(window, frame, handle)
-    local dragging, startInput, startPos=false,nil,nil
+    local dragging, dragInput, startInput, startCenter=false,nil,nil,nil
     local conns={}
     conns[1]=handle.InputBegan:Connect(function(input)
+        if dragging then return end
         if window._WindowState.Maximized and not window._WindowState.Minimized then return end
         if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
             window:_CommitScale()
-            dragging=true; startInput=input.Position; startPos=frame.Position
+            dragging=true
+            dragInput=input
+            startInput=input.Position
+            startCenter=frame.AbsolutePosition+frame.AbsoluteSize/2
         end
     end)
     conns[2]=UserInputService.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then
+            if dragInput.UserInputType==Enum.UserInputType.Touch and input~=dragInput then return end
             if window._WindowState.Maximized and not window._WindowState.Minimized then return end
             local delta=input.Position-startInput
-            frame.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+delta.X,startPos.Y.Scale,startPos.Y.Offset+delta.Y)
-            if window._WindowState.Minimized then window._WindowState.MinimizedPosition=frame.Position
-            else window.OriginalPosition=frame.Position end
+            local metrics=getResponsiveMetrics(window.UserScale,window.ReferenceSize)
+            local halfSize=frame.AbsoluteSize/2
+            local minX,maxX=metrics.Left+halfSize.X,metrics.Right-halfSize.X
+            local minY,maxY=metrics.Top+halfSize.Y,metrics.Bottom-halfSize.Y
+            local x=minX<=maxX and math.clamp(startCenter.X+delta.X,minX,maxX) or metrics.Left+metrics.AvailableWidth/2
+            local y=minY<=maxY and math.clamp(startCenter.Y+delta.Y,minY,maxY) or metrics.Top+metrics.AvailableHeight/2
+            frame.Position=UDim2.fromOffset(math.round(x),math.round(y))
+            window._HasCustomPosition=true
+            if window._WindowState.Minimized then
+                window._WindowState.MinimizedPosition=frame.Position
+                window._WindowState.PreviousPosition=offsetPosition(frame.Position,0,window._WindowState.MinimizeDeltaY or 0)
+                if not window._WindowState.PreMinimizeMaximized then
+                    window._PreferredPosition=window._WindowState.PreviousPosition
+                end
+            else
+                window.OriginalPosition=frame.Position
+                window._WindowState.PreviousPosition=frame.Position
+                window._PreferredPosition=frame.Position
+            end
         end
     end)
     conns[3]=UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then dragging=false end
+        if input==dragInput then dragging=false; dragInput=nil end
     end)
     for _,c in ipairs(conns) do window._Cleanup:Add(c) end
-    window._Cleanup:Add(function() dragging=false; startInput=nil; startPos=nil end)
+    window._Cleanup:Add(function() dragging=false; dragInput=nil; startInput=nil; startCenter=nil end)
 end
 
 local function attachContainerApi(container,context,parent)
@@ -730,13 +813,24 @@ end
 
 function Window.new(context,options)
     options=options or {}
-    local finalScale=tonumber(options.Scale) or DEFAULT_UI_SCALE
-    if finalScale~=finalScale then finalScale=DEFAULT_UI_SCALE end
-    finalScale=math.clamp(finalScale,MIN_UI_SCALE,MAX_UI_SCALE)
+    local userScale=tonumber(options.Scale) or DEFAULT_USER_SCALE
+    if userScale~=userScale then userScale=DEFAULT_USER_SCALE end
+    userScale=math.clamp(userScale,MIN_USER_SCALE,MAX_USER_SCALE)
+    local referenceSize=options.Size or UDim2.fromOffset(REFERENCE_VISUAL_WIDTH,REFERENCE_VISUAL_HEIGHT)
+    local initialMetrics=getResponsiveMetrics(userScale,referenceSize)
     local self=setmetatable({
         Context=context,
         Tabs={},ActiveTab=nil,
-        Scale=finalScale,
+        Scale=initialMetrics.Scale,
+        UserScale=userScale,
+        ReferenceSize=referenceSize,
+        DeviceMode=initialMetrics.Mode,
+        _ResponsiveMetrics=initialMetrics,
+        _ColumnGroups={},
+        _HasCustomSize=false,
+        _HasCustomPosition=false,
+        _PreferredSize=nil,
+        _PreferredPosition=nil,
         Minimized=false,Maximized=false,
         _Cleanup=Cleanup.new(),
         _TransitionId=0,
@@ -748,12 +842,12 @@ function Window.new(context,options)
     -- ROOT is interaction/layout only. Keeping it fully transparent prevents a square
     -- acrylic layer from appearing below the rounded visual container.
     local root=Utility.Create("Frame",{
-        Name="AxiomWindow",AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),
-        Size=options.Size or UDim2.fromOffset(820,520),BackgroundTransparency=1,
+        Name="AxiomWindow",AnchorPoint=Vector2.new(0.5,0.5),Position=initialMetrics.CenterPosition,
+        Size=initialMetrics.LogicalSize,BackgroundTransparency=1,
         BorderSizePixel=0,ClipsDescendants=false,ZIndex=Z_INDEX.Background,Parent=context.Gui,
     })
-    local scale=Utility.Create("UIScale",{Scale=finalScale*0.965,Parent=root})
-    local scaleTween=Animation.Tween(scale,{Scale=finalScale},0.34)
+    local scale=Utility.Create("UIScale",{Scale=initialMetrics.Scale*0.965,Parent=root})
+    local scaleTween=Animation.Tween(scale,{Scale=initialMetrics.Scale},0.34)
     if scaleTween then self._Cleanup:Add(scaleTween) end
     self._Cleanup:Add(function() Animation.Cancel(scale) end)
 
@@ -787,8 +881,8 @@ function Window.new(context,options)
     -- TITLE BAR (Header) - dentro do clip, cantos arredondados via parent clip
     local top=Utility.Create("Frame",{Name="TitleBar",Size=UDim2.new(1,0,0,HEADER_HEIGHT),BackgroundColor3=t.Surface,BackgroundTransparency=0.58,BorderSizePixel=0,ZIndex=Z_INDEX.Header,Parent=windowClip})
     Utility.Create("Frame",{AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,12,1,0),Size=UDim2.new(1,-24,0,1),BackgroundColor3=t.Stroke,BackgroundTransparency=0.5,BorderSizePixel=0,Parent=top})
-    Utility.Create("TextLabel",{Position=UDim2.fromOffset(18,9),Size=UDim2.new(1,-180,0,21),BackgroundTransparency=1,Font=Enum.Font.GothamBold,Text=options.Title or "AXIOM",TextColor3=t.Text,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,Parent=top})
-    Utility.Create("TextLabel",{Position=UDim2.fromOffset(18,29),Size=UDim2.new(1,-180,0,16),BackgroundTransparency=1,Font=Enum.Font.Gotham,Text=options.Subtitle or "UI ENGINE",TextColor3=t.TextMuted,TextSize=9,TextXAlignment=Enum.TextXAlignment.Left,Parent=top})
+    local titleLabel=Utility.Create("TextLabel",{Position=UDim2.fromOffset(18,9),Size=UDim2.new(1,-180,0,21),BackgroundTransparency=1,Font=Enum.Font.GothamBold,Text=options.Title or "AXIOM",TextColor3=t.Text,TextSize=13,TextTruncate=Enum.TextTruncate.AtEnd,TextXAlignment=Enum.TextXAlignment.Left,Parent=top})
+    local subtitleLabel=Utility.Create("TextLabel",{Position=UDim2.fromOffset(18,29),Size=UDim2.new(1,-180,0,16),BackgroundTransparency=1,Font=Enum.Font.Gotham,Text=options.Subtitle or "UI ENGINE",TextColor3=t.TextMuted,TextSize=9,TextTruncate=Enum.TextTruncate.AtEnd,TextXAlignment=Enum.TextXAlignment.Left,Parent=top})
 
     local function topButton(text,x,callback,color)
         local button=Utility.Create("TextButton",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,x,0,13),Size=UDim2.fromOffset(32,32),BackgroundColor3=t.SurfaceAlt,BackgroundTransparency=0.22,BorderSizePixel=0,AutoButtonColor=false,Font=Enum.Font.GothamBold,Text=text,TextColor3=color or t.TextMuted,TextSize=14,Parent=top})
@@ -829,10 +923,13 @@ function Window.new(context,options)
     self.WindowVisual=windowVisual
     self.WindowClip=windowClip
     self.TitleBar=top
+    self.TitleLabel=titleLabel
+    self.SubtitleLabel=subtitleLabel
     self.Body=body
     self.Sidebar=sidebar
     self.TabList=tabList
     self.Content=content
+    self.Status=status
     self.OverlayLayer=overlayLayer
     self.TooltipLayer=tooltipLayer
     self.PopupLayer=popupLayer
@@ -862,38 +959,63 @@ function Window.new(context,options)
     self.ResizeHandle=resize
 
     -- Resize logic centralizada, sem leak, respeitando estados e limites
-    local resizing,resizeStart,sizeStart=false,nil,nil
+    local resizing,resizeInput,resizeStart,sizeStart=false,nil,nil,nil
     local c1=resize.InputBegan:Connect(function(input)
-        if self._WindowState.Minimized or self._WindowState.Maximized then return end
+        if resizing then return end
+        if self._ResponsiveMetrics.PureTouch or self._WindowState.Minimized or self._WindowState.Maximized then return end
         if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
             self:_CommitScale()
             resizing=true
+            resizeInput=input
             resizeStart=input.Position
-            sizeStart=root.AbsoluteSize/finalScale
+            sizeStart=root.AbsoluteSize/self.Scale
         end
     end)
     local c2=UserInputService.InputChanged:Connect(function(input)
         if not resizing then return end
         if self._WindowState.Minimized or self._WindowState.Maximized then return end
         if input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch then
-            local delta=(input.Position-resizeStart)/finalScale
-            local maxSize=getMaximizedBounds(finalScale)
-            local maxW=maxSize.X.Offset
-            local maxH=maxSize.Y.Offset
-            local newW=math.clamp(sizeStart.X+delta.X, MIN_WIDTH, maxW)
-            local newH=math.clamp(sizeStart.Y+delta.Y, MIN_HEIGHT, maxH)
+            if resizeInput.UserInputType==Enum.UserInputType.Touch and input~=resizeInput then return end
+            local delta=(input.Position-resizeStart)/self.Scale
+            local metrics=getResponsiveMetrics(self.UserScale,self.ReferenceSize)
+            local center=root.AbsolutePosition+root.AbsoluteSize/2
+            local maxVisualW=math.max(1,2*math.min(center.X-metrics.Left,metrics.Right-center.X))
+            local maxVisualH=math.max(1,2*math.min(center.Y-metrics.Top,metrics.Bottom-center.Y))
+            local maxW=math.min(metrics.AvailableWidth,maxVisualW)/self.Scale
+            local maxH=math.min(metrics.AvailableHeight,maxVisualH)/self.Scale
+            local newW=math.clamp(sizeStart.X+delta.X,math.min(MIN_RESIZE_WIDTH,maxW),maxW)
+            local newH=math.clamp(sizeStart.Y+delta.Y,math.min(MIN_RESIZE_HEIGHT,maxH),maxH)
             root.Size=UDim2.fromOffset(newW,newH)
-            -- Não sobrescreve PreviousSize se estiver maximizado/minimizado; atualiza Original para compat
+            self._HasCustomSize=true
+            self._PreferredSize=root.Size
             self.OriginalSize=root.Size
             self._WindowState.PreviousSize=root.Size
+            self:_UpdateDeviceLayout(metrics)
         end
     end)
     local c3=UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then resizing=false end
+        if input==resizeInput then resizing=false; resizeInput=nil end
     end)
     self._Cleanup:Add(c1); self._Cleanup:Add(c2); self._Cleanup:Add(c3)
-    self._Cleanup:Add(function() resizing=false; resizeStart=nil; sizeStart=nil end)
+    self._Cleanup:Add(function() resizing=false; resizeInput=nil; resizeStart=nil; sizeStart=nil end)
     self._Cleanup:Add(root.Destroying:Connect(function() if not self._IsDestroyed then self:Destroy() end end))
+
+    self:_UpdateDeviceLayout(initialMetrics)
+    local viewportConnection
+    local function bindViewport(reapply)
+        if viewportConnection then viewportConnection:Disconnect(); viewportConnection=nil end
+        local camera=workspace.CurrentCamera
+        if camera then
+            viewportConnection=camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+                self:_ApplyResponsiveLayout(true)
+            end)
+        end
+        if reapply~=false then self:_ApplyResponsiveLayout(false) end
+    end
+    self._Cleanup:Add(workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function() bindViewport(true) end))
+    self._Cleanup:Add(GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(function() self:_ApplyResponsiveLayout(true) end))
+    self._Cleanup:Add(function() if viewportConnection then viewportConnection:Disconnect(); viewportConnection=nil end end)
+    bindViewport(false)
 
     return self
 end
@@ -910,6 +1032,152 @@ function Window:_CommitScale()
     if not self.UIScale then return end
     Animation.Cancel(self.UIScale)
     self.UIScale.Scale=self.Scale
+end
+
+function Window:GetDeviceMode()
+    return self.DeviceMode
+end
+
+function Window:_UpdateColumnGroups()
+    local contentWidth=self._ContentLogicalWidth or 0
+    if contentWidth<=0 and self.Content and self.Content.AbsoluteSize.X>0 and self.UIScale and self.UIScale.Scale>0 then
+        contentWidth=self.Content.AbsoluteSize.X/self.UIScale.Scale
+    end
+    local stacked=(self.DeviceMode=="Mobile" and self._ResponsiveMetrics.Portrait) or contentWidth<340
+    for _,group in ipairs(self._ColumnGroups) do
+        if group.Holder.Parent then
+            group.Layout.FillDirection=stacked and Enum.FillDirection.Vertical or Enum.FillDirection.Horizontal
+            group.Layout.Padding=UDim.new(0,group.Gap)
+            if stacked then
+                group.Left.Size=UDim2.new(1,0,0,0)
+                group.Right.Size=UDim2.new(1,0,0,0)
+            else
+                group.Left.Size=UDim2.new(group.Ratio,-group.Gap/2,0,0)
+                group.Right.Size=UDim2.new(1-group.Ratio,-group.Gap/2,0,0)
+            end
+        end
+    end
+end
+
+function Window:_UpdateDeviceLayout(metrics,logicalSize)
+    self.DeviceMode=metrics.Mode
+    self._ResponsiveMetrics=metrics
+    local sidebarWidth
+    local contentGap
+    local rightPadding
+    local tabSize
+    local tabInset
+    local statusSize
+    if metrics.Mode=="Mobile" then
+        sidebarWidth=56; contentGap=10; rightPadding=10; tabSize=48; tabInset=4; statusSize=48
+    elseif metrics.Mode=="Tablet" then
+        sidebarWidth=72; contentGap=14; rightPadding=14; tabSize=52; tabInset=10; statusSize=52
+    else
+        sidebarWidth=88; contentGap=22; rightPadding=22; tabSize=56; tabInset=15; statusSize=56
+    end
+    local contentX=sidebarWidth+contentGap
+    local layoutSize=logicalSize or self.Root.Size
+    self._ContentLogicalWidth=math.max(0,layoutSize.X.Offset-contentX-rightPadding)
+    self.Sidebar.Size=UDim2.new(0,sidebarWidth,1,0)
+    self.TabList.Position=UDim2.fromOffset(tabInset,18)
+    self.TabList.Size=UDim2.new(1,-tabInset*2,1,-92)
+    self.Content.Position=UDim2.fromOffset(contentX,22)
+    self.Content.Size=UDim2.new(1,-contentX-rightPadding,1,-44)
+    self.Status.Size=UDim2.fromOffset(statusSize,statusSize)
+    self.Status.Position=UDim2.new(0.5,0,1,-math.max(10,tabInset))
+    for _,tab in ipairs(self.Tabs) do
+        if tab.Button then tab.Button.Size=UDim2.fromOffset(tabSize,metrics.Mode=="Mobile" and 48 or 52) end
+        if metrics.PureTouch and tab._HideTooltip then tab._HideTooltip(true) end
+    end
+    self.ResizeHandle.Visible=not metrics.PureTouch and not self._WindowState.Minimized and not self._WindowState.Maximized
+    self:_UpdateColumnGroups()
+end
+
+function Window:_GetMaximizedBounds()
+    local metrics=getResponsiveMetrics(self.UserScale,self.ReferenceSize)
+    return UDim2.fromOffset(
+        math.round(metrics.AvailableWidth/self.Scale),
+        math.round(metrics.AvailableHeight/self.Scale)
+    ),metrics.CenterPosition,metrics
+end
+
+function Window:_ClampPosition(position,size,metrics)
+    metrics=metrics or getResponsiveMetrics(self.UserScale,self.ReferenceSize)
+    local halfWidth=size.X.Offset*self.Scale/2
+    local halfHeight=size.Y.Offset*self.Scale/2
+    local minX,maxX=metrics.Left+halfWidth,metrics.Right-halfWidth
+    local minY,maxY=metrics.Top+halfHeight,metrics.Bottom-halfHeight
+    local x=minX<=maxX and math.clamp(position.X.Offset,minX,maxX) or metrics.Left+metrics.AvailableWidth/2
+    local y=minY<=maxY and math.clamp(position.Y.Offset,minY,maxY) or metrics.Top+metrics.AvailableHeight/2
+    return UDim2.fromOffset(math.round(x),math.round(y))
+end
+
+function Window:_GetResponsiveRestoreGeometry(metrics)
+    local preservingRestoreState=self._WindowState.Maximized or self._WindowState.Minimized
+    local currentSize=preservingRestoreState and (self._WindowState.PreviousSize or self.OriginalSize) or self.Root.Size
+    local currentPosition=preservingRestoreState and (self._WindowState.PreviousPosition or self.OriginalPosition) or self.Root.Position
+    local targetSize=self._HasCustomSize and (self._PreferredSize or currentSize) or metrics.LogicalSize
+    local maxWidth=metrics.AvailableWidth/metrics.Scale
+    local maxHeight=metrics.AvailableHeight/metrics.Scale
+    targetSize=UDim2.fromOffset(
+        math.round(math.clamp(targetSize.X.Offset,math.min(MIN_RESIZE_WIDTH,maxWidth),maxWidth)),
+        math.round(math.clamp(targetSize.Y.Offset,math.min(MIN_RESIZE_HEIGHT,maxHeight),maxHeight))
+    )
+    local targetPosition=self._HasCustomPosition and (self._PreferredPosition or currentPosition) or metrics.CenterPosition
+    return targetSize,self:_ClampPosition(targetPosition,targetSize,metrics)
+end
+
+function Window:_ApplyResponsiveLayout(animate)
+    if self._IsDestroyed then return end
+    local metrics=getResponsiveMetrics(self.UserScale,self.ReferenceSize)
+    self._TransitionId+=1
+    self._WindowState.IsAnimating=false
+    self.Scale=metrics.Scale
+    local restoreSize,restorePosition=self:_GetResponsiveRestoreGeometry(metrics)
+    local targetSize=restoreSize
+    local targetPosition=restorePosition
+
+    if self._WindowState.Minimized then
+        local minimizedRestoreSize=restoreSize
+        local minimizedRestorePosition=restorePosition
+        self._WindowState.PreviousSize=restoreSize
+        self._WindowState.PreviousPosition=restorePosition
+        if self._WindowState.PreMinimizeMaximized then
+            minimizedRestoreSize=metrics.MaximizedSize
+            minimizedRestorePosition=metrics.CenterPosition
+        end
+        local deltaY=math.max(0,(minimizedRestoreSize.Y.Offset*metrics.Scale-HEADER_HEIGHT*metrics.Scale)/2)
+        self._WindowState.MinimizeDeltaY=deltaY
+        targetSize=UDim2.fromOffset(minimizedRestoreSize.X.Offset,HEADER_HEIGHT)
+        targetPosition=offsetPosition(minimizedRestorePosition,0,-deltaY)
+        self.Body.Visible=false
+        self.Body.GroupTransparency=1
+    elseif self._WindowState.Maximized then
+        targetSize=metrics.MaximizedSize
+        self._WindowState.PreviousSize=restoreSize
+        self._WindowState.PreviousPosition=restorePosition
+        self.Body.Visible=true
+        self.Body.GroupTransparency=0
+    else
+        self.OriginalSize=restoreSize
+        self.OriginalPosition=restorePosition
+        self._WindowState.PreviousSize=restoreSize
+        self._WindowState.PreviousPosition=restorePosition
+        self.Body.Visible=true
+        self.Body.GroupTransparency=0
+    end
+
+    self:_UpdateDeviceLayout(metrics,targetSize)
+    if animate then
+        Animation.Tween(self.UIScale,{Scale=metrics.Scale},0.22)
+        Animation.Tween(self.Root,{Size=targetSize,Position=targetPosition},0.22)
+    else
+        Animation.Cancel(self.UIScale)
+        Animation.Cancel(self.Root)
+        self.UIScale.Scale=metrics.Scale
+        self.Root.Size=targetSize
+        self.Root.Position=targetPosition
+    end
 end
 
 function Window:AddTab(options)
@@ -942,14 +1210,16 @@ function Window:AddTab(options)
             if revision==tooltipRevision and tooltip.Parent then tooltip.Visible=false end
         end)
     end
-    self._Cleanup:Add(button.MouseEnter:Connect(function()
-        if not tooltip.Parent then return end
-        tooltipRevision+=1
-        positionTooltip()
-        tooltip.Visible=true
-        Animation.Tween(tooltip,{Size=UDim2.fromOffset(110,30)},0.16)
-    end))
-    self._Cleanup:Add(button.MouseLeave:Connect(function() hideTooltip(false) end))
+    if not self._ResponsiveMetrics.PureTouch then
+        self._Cleanup:Add(button.MouseEnter:Connect(function()
+            if not tooltip.Parent then return end
+            tooltipRevision+=1
+            positionTooltip()
+            tooltip.Visible=true
+            Animation.Tween(tooltip,{Size=UDim2.fromOffset(110,30)},0.16)
+        end))
+        self._Cleanup:Add(button.MouseLeave:Connect(function() hideTooltip(false) end))
+    end
     self._Cleanup:Add(function() hideTooltip(true) end)
     local page=Utility.Create("ScrollingFrame",{Name=(options.Name or "Tab").."Page",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,ScrollBarImageColor3=t.Primary,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new(),Visible=false,ZIndex=Z_INDEX.Content,Parent=self.Content})
     Utility.Padding(page,2); Utility.Create("UIListLayout",{Padding=UDim.new(0,12),SortOrder=Enum.SortOrder.LayoutOrder,Parent=page})
@@ -962,13 +1232,16 @@ function Window:AddTab(options)
         local holder=Utility.Create("Frame",{Size=UDim2.new(1,-4,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,Parent=self.CurrentParent})
         local left=Utility.Create("Frame",{Size=UDim2.new(ratio,-gap/2,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,Parent=holder})
         local right=Utility.Create("Frame",{Size=UDim2.new(1-ratio,-gap/2,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,Parent=holder})
-        Utility.Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,gap),VerticalAlignment=Enum.VerticalAlignment.Top,Parent=holder})
+        local layout=Utility.Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,gap),VerticalAlignment=Enum.VerticalAlignment.Top,Parent=holder})
         Utility.Create("UIListLayout",{Padding=UDim.new(0,9),Parent=left})
         Utility.Create("UIListLayout",{Padding=UDim.new(0,9),Parent=right})
+        table.insert(self.Window._ColumnGroups,{Holder=holder,Left=left,Right=right,Layout=layout,Ratio=ratio,Gap=gap})
+        self.Window:_UpdateColumnGroups()
         return attachContainerApi({},self.Window.Context,left),attachContainerApi({},self.Window.Context,right)
     end
     self._Cleanup:Add(button.Activated:Connect(function() if not self._IsDestroyed then tab:Select() end end))
     table.insert(self.Tabs,tab)
+    self:_UpdateDeviceLayout(self._ResponsiveMetrics)
     if not self.ActiveTab then self:SelectTab(tab) end
     return tab
 end
@@ -1027,7 +1300,9 @@ function Window:_DoRestoreFromMinimize()
     if self._WindowState.PreMinimizeMaximized then
         self._WindowState.Maximized=true
         self.Maximized=true
-        targetSize,targetPos=getMaximizedBounds(self.Scale)
+        local metrics
+        targetSize,targetPos,metrics=self:_GetMaximizedBounds()
+        self:_UpdateDeviceLayout(metrics,targetSize)
         Animation.Tween(self.Root,{Size=targetSize,Position=targetPos},TWEEN_RESTORE)
         self:_Delay(TWEEN_RESTORE,function()
             if token~=self._TransitionId then return end
@@ -1039,11 +1314,13 @@ function Window:_DoRestoreFromMinimize()
     else
         self._WindowState.Maximized=false
         self.Maximized=false
+        targetPos=self:_ClampPosition(targetPos,targetSize)
+        self:_UpdateDeviceLayout(self._ResponsiveMetrics,targetSize)
         Animation.Tween(self.Root,{Size=targetSize,Position=targetPos},TWEEN_RESTORE, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
         self:_Delay(TWEEN_RESTORE,function()
             if token~=self._TransitionId then return end
             self.Body.Visible=true
-            self.ResizeHandle.Visible=true
+            self.ResizeHandle.Visible=not self._ResponsiveMetrics.PureTouch
             Animation.Tween(self.Body,{GroupTransparency=0},0.16)
             self._WindowState.IsAnimating=false
         end)
@@ -1079,11 +1356,12 @@ function Window:Maximize()
         self._WindowState.Maximized=false
         self.Maximized=false
         local targetSize=self._WindowState.PreviousSize or self.OriginalSize
-        local targetPos=self._WindowState.PreviousPosition or self.OriginalPosition
+        local targetPos=self:_ClampPosition(self._WindowState.PreviousPosition or self.OriginalPosition,targetSize)
+        self:_UpdateDeviceLayout(self._ResponsiveMetrics,targetSize)
         Animation.Tween(self.Root,{Size=targetSize,Position=targetPos},TWEEN_MAXIMIZE, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
         self:_Delay(TWEEN_MAXIMIZE,function()
             if token~=self._TransitionId then return end
-            self.ResizeHandle.Visible=true
+            self.ResizeHandle.Visible=not self._ResponsiveMetrics.PureTouch
             self._WindowState.IsAnimating=false
             self.OriginalSize=targetSize
             self.OriginalPosition=targetPos
@@ -1094,7 +1372,8 @@ function Window:Maximize()
         self._WindowState.IsAnimating=true
         self._WindowState.Maximized=true
         self.Maximized=true
-        local maxSize,maxPos=getMaximizedBounds(self.Scale)
+        local maxSize,maxPos,metrics=self:_GetMaximizedBounds()
+        self:_UpdateDeviceLayout(metrics,maxSize)
         Animation.Tween(self.Root,{Size=maxSize,Position=maxPos},TWEEN_MAXIMIZE, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
         self:_Delay(TWEEN_MAXIMIZE,function()
             if token~=self._TransitionId then return end
@@ -1144,6 +1423,7 @@ function Window:Destroy()
         tab.CurrentParent=nil
     end
     table.clear(self.Tabs)
+    table.clear(self._ColumnGroups)
     self.ActiveTab=nil
     self.ResizeHandle=nil
     self.UIScale=nil
@@ -1151,15 +1431,25 @@ function Window:Destroy()
     self.Sidebar=nil
     self.TabList=nil
     self.Content=nil
+    self.Status=nil
     self.OverlayLayer=nil
     self.TooltipLayer=nil
     self.PopupLayer=nil
     self.ModalLayer=nil
     self.TitleBar=nil
+    self.TitleLabel=nil
+    self.SubtitleLabel=nil
     self.WindowClip=nil
     self.WindowVisual=nil
     self.Root=nil
     self.Context=nil
+    self.ReferenceSize=nil
+    self._ResponsiveMetrics=nil
+    self._ColumnGroups=nil
+    self._HasCustomSize=nil
+    self._HasCustomPosition=nil
+    self._PreferredSize=nil
+    self._PreferredPosition=nil
     self._Cleanup=nil
     self._WindowState=nil
 end
