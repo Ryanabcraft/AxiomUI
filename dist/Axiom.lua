@@ -903,11 +903,6 @@ function Window.new(context,options)
     Utility.Create("Frame",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,12),Size=UDim2.new(0,1,1,-24),BackgroundColor3=t.Stroke,BackgroundTransparency=0.52,BorderSizePixel=0,Parent=sidebar})
     local tabList=Utility.Create("Frame",{Position=UDim2.fromOffset(15,18),Size=UDim2.new(1,-30,1,-92),BackgroundTransparency=1,Parent=sidebar})
     Utility.Create("UIListLayout",{Padding=UDim.new(0,9),HorizontalAlignment=Enum.HorizontalAlignment.Center,Parent=tabList})
-    local status=Utility.Create("Frame",{AnchorPoint=Vector2.new(0.5,1),Position=UDim2.new(0.5,0,1,-16),Size=UDim2.fromOffset(56,56),BackgroundColor3=t.SurfaceAlt,BackgroundTransparency=0.2,BorderSizePixel=0,Parent=sidebar})
-    Utility.Corner(status,UDim.new(0,11)); Utility.Stroke(status,t.Stroke,0.62)
-    local statusDot=Utility.Create("Frame",{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(14,14),BackgroundColor3=t.Primary,BorderSizePixel=0,Parent=status})
-    Utility.Corner(statusDot,UDim.new(1,0)); Utility.Create("UIGradient",{Color=ColorSequence.new(t.Primary,t.Secondary),Rotation=45,Parent=statusDot})
-
     -- Content dentro do Body, com offset correto (22px abaixo do header)
     local content=Utility.Create("Frame",{Position=UDim2.fromOffset(110,22),Size=UDim2.new(1,-132,1,-44),BackgroundTransparency=1,ZIndex=Z_INDEX.Content,Parent=body})
 
@@ -929,7 +924,6 @@ function Window.new(context,options)
     self.Sidebar=sidebar
     self.TabList=tabList
     self.Content=content
-    self.Status=status
     self.OverlayLayer=overlayLayer
     self.TooltipLayer=tooltipLayer
     self.PopupLayer=popupLayer
@@ -1067,24 +1061,21 @@ function Window:_UpdateDeviceLayout(metrics,logicalSize)
     local rightPadding
     local tabSize
     local tabInset
-    local statusSize
     if metrics.Mode=="Mobile" then
-        sidebarWidth=56; contentGap=10; rightPadding=10; tabSize=48; tabInset=4; statusSize=48
+        sidebarWidth=56; contentGap=10; rightPadding=10; tabSize=48; tabInset=4
     elseif metrics.Mode=="Tablet" then
-        sidebarWidth=72; contentGap=14; rightPadding=14; tabSize=52; tabInset=10; statusSize=52
+        sidebarWidth=72; contentGap=14; rightPadding=14; tabSize=52; tabInset=10
     else
-        sidebarWidth=88; contentGap=22; rightPadding=22; tabSize=56; tabInset=15; statusSize=56
+        sidebarWidth=88; contentGap=22; rightPadding=22; tabSize=56; tabInset=15
     end
     local contentX=sidebarWidth+contentGap
     local layoutSize=logicalSize or self.Root.Size
     self._ContentLogicalWidth=math.max(0,layoutSize.X.Offset-contentX-rightPadding)
     self.Sidebar.Size=UDim2.new(0,sidebarWidth,1,0)
     self.TabList.Position=UDim2.fromOffset(tabInset,18)
-    self.TabList.Size=UDim2.new(1,-tabInset*2,1,-92)
+    self.TabList.Size=UDim2.new(1,-tabInset*2,1,-36)
     self.Content.Position=UDim2.fromOffset(contentX,22)
     self.Content.Size=UDim2.new(1,-contentX-rightPadding,1,-44)
-    self.Status.Size=UDim2.fromOffset(statusSize,statusSize)
-    self.Status.Position=UDim2.new(0.5,0,1,-math.max(10,tabInset))
     for _,tab in ipairs(self.Tabs) do
         if tab.Button then tab.Button.Size=UDim2.fromOffset(tabSize,metrics.Mode=="Mobile" and 48 or 52) end
         if metrics.PureTouch and tab._HideTooltip then tab._HideTooltip(true) end
@@ -1431,7 +1422,6 @@ function Window:Destroy()
     self.Sidebar=nil
     self.TabList=nil
     self.Content=nil
-    self.Status=nil
     self.OverlayLayer=nil
     self.TooltipLayer=nil
     self.PopupLayer=nil
