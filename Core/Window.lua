@@ -289,6 +289,10 @@ function Window.new(context,options)
 
     -- TITLE BAR (Header) - dentro do clip, cantos arredondados via parent clip
     local top=Utility.Create("Frame",{Name="TitleBar",Size=UDim2.new(1,0,0,HEADER_HEIGHT),BackgroundColor3=t.Surface,BackgroundTransparency=0.72,BorderSizePixel=0,ZIndex=Z_INDEX.Header,Parent=windowClip})
+    Utility.Create("UICorner",{
+        TopLeftRadius=UDim.new(0,WINDOW_RADIUS),TopRightRadius=UDim.new(0,WINDOW_RADIUS),
+        BottomLeftRadius=UDim.new(0,0),BottomRightRadius=UDim.new(0,0),Parent=top,
+    })
     Utility.Create("Frame",{AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,12,1,0),Size=UDim2.new(1,-24,0,1),BackgroundColor3=t.Stroke,BackgroundTransparency=0.5,BorderSizePixel=0,Parent=top})
     local titleLabel=Utility.Create("TextLabel",{Position=UDim2.fromOffset(18,9),Size=UDim2.new(1,-180,0,21),BackgroundTransparency=1,Font=Enum.Font.GothamBold,Text=options.Title or "AXIOM",TextColor3=t.Text,TextSize=13,TextTruncate=Enum.TextTruncate.AtEnd,TextXAlignment=Enum.TextXAlignment.Left,Parent=top})
     local subtitleLabel=Utility.Create("TextLabel",{Position=UDim2.fromOffset(18,29),Size=UDim2.new(1,-180,0,16),BackgroundTransparency=1,Font=Enum.Font.Gotham,Text=options.Subtitle or "UI ENGINE",TextColor3=t.TextMuted,TextSize=9,TextTruncate=Enum.TextTruncate.AtEnd,TextXAlignment=Enum.TextXAlignment.Left,Parent=top})
@@ -347,6 +351,10 @@ function Window.new(context,options)
     local body=Utility.Create("CanvasGroup",{Name="Body",Position=UDim2.fromOffset(0,HEADER_HEIGHT),Size=UDim2.new(1,0,1,-HEADER_HEIGHT),BackgroundTransparency=1,BorderSizePixel=0,GroupTransparency=0,ZIndex=Z_INDEX.Body,Parent=windowClip})
 
     local sidebar=Utility.Create("Frame",{Position=UDim2.fromOffset(0,0),Size=UDim2.new(0,88,1,0),BackgroundColor3=t.Surface,BackgroundTransparency=0.74,BorderSizePixel=0,ZIndex=Z_INDEX.Sidebar,Parent=body})
+    Utility.Create("UICorner",{
+        TopLeftRadius=UDim.new(0,0),TopRightRadius=UDim.new(0,0),
+        BottomLeftRadius=UDim.new(0,WINDOW_RADIUS),BottomRightRadius=UDim.new(0,0),Parent=sidebar,
+    })
     Utility.Create("Frame",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,12),Size=UDim2.new(0,1,1,-24),BackgroundColor3=t.Stroke,BackgroundTransparency=0.52,BorderSizePixel=0,Parent=sidebar})
     local tabList=Utility.Create("Frame",{Position=UDim2.fromOffset(15,18),Size=UDim2.new(1,-30,1,-92),BackgroundTransparency=1,Parent=sidebar})
     Utility.Create("UIListLayout",{Padding=UDim.new(0,9),HorizontalAlignment=Enum.HorizontalAlignment.Center,Parent=tabList})
