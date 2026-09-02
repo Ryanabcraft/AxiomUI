@@ -1,4 +1,4 @@
--- AXIOM UI ENGINE · generated distribution
+-- AXIOM UI ENGINE � generated distribution
 local __modules,__cache={},{}
 local function __require(id)
  if __cache[id]~=nil then return __cache[id] end
@@ -6,54 +6,6 @@ local function __require(id)
  local value=factory()
  __cache[id]=value
  return value
-end
-
-__modules["Themes/Light"]=function()
-return {
-    Name="Axiom Light", Background=Color3.fromRGB(238,241,249), Surface=Color3.fromRGB(250,251,255),
-    SurfaceAlt=Color3.fromRGB(228,232,244), SurfaceHover=Color3.fromRGB(215,221,239), Stroke=Color3.fromRGB(184,191,215),
-    Text=Color3.fromRGB(24,27,39), TextMuted=Color3.fromRGB(91,99,126), Primary=Color3.fromRGB(102,78,235),
-    Secondary=Color3.fromRGB(25,137,229), Success=Color3.fromRGB(22,164,111), Danger=Color3.fromRGB(225,65,96),
-    Warning=Color3.fromRGB(218,145,34), Radius=UDim.new(0,10), Transparency=0.04, AcrylicTransparency=0.08, TweenTime=0.22,
-}
-
-end
-
-__modules["Themes/Dark"]=function()
-return {
-    Name = "Axiom Dark",
-    Background = Color3.fromRGB(7, 8, 14),
-    Surface = Color3.fromRGB(13, 15, 24),
-    SurfaceAlt = Color3.fromRGB(22, 24, 37),
-    SurfaceHover = Color3.fromRGB(32, 34, 51),
-    Stroke = Color3.fromRGB(61, 64, 88),
-    Text = Color3.fromRGB(241, 243, 255),
-    TextMuted = Color3.fromRGB(143, 149, 174),
-    Primary = Color3.fromRGB(139, 55, 255),
-    Secondary = Color3.fromRGB(31, 130, 255),
-    Success = Color3.fromRGB(53, 211, 153),
-    Danger = Color3.fromRGB(255, 91, 121),
-    Warning = Color3.fromRGB(255, 190, 76),
-    Radius = UDim.new(0, 11),
-    Transparency = 0.12,
-    AcrylicTransparency = 0.09,
-    TweenTime = 0.22,
-}
-
-end
-
-__modules["Themes/Custom"]=function()
-local Dark = __require("Themes/Dark")
-
-return function(overrides)
-    local theme = table.clone(Dark)
-    theme.Name = "Axiom Custom"
-    for key, value in pairs(overrides or {}) do
-        theme[key] = value
-    end
-    return theme
-end
-
 end
 
 __modules["Components/Base"]=function()
@@ -94,39 +46,6 @@ return Base
 
 end
 
-__modules["Components/Toggle"]=function()
-local State = __require("Core/State")
-local Animation = __require("Services/Animation")
-local Utility = __require("Services/Utility")
-local Base = __require("Components/Base")
-
-return function(context, parent, options)
-    options = options or {}
-    local theme = context.Theme.Current
-    local state = State.new(options.Default == true)
-    local row = Base.Row(context, parent, options, 54)
-    local button = Utility.Create("TextButton", {
-        AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0), Size = UDim2.fromOffset(42, 24),
-        BackgroundColor3 = theme.SurfaceHover, BorderSizePixel = 0, Text = "", AutoButtonColor = false, Parent = row,
-    })
-    Utility.Corner(button, UDim.new(1, 0))
-    local knob = Utility.Create("Frame", {
-        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 12, 0.5, 0), Size = UDim2.fromOffset(16, 16),
-        BackgroundColor3 = theme.TextMuted, BorderSizePixel = 0, Parent = button,
-    })
-    Utility.Corner(knob, UDim.new(1, 0))
-    local function render(value)
-        Animation.Tween(button, { BackgroundColor3 = value and context.Theme.Current.Primary or context.Theme.Current.SurfaceHover })
-        Animation.Tween(knob, { Position = UDim2.new(0, value and 30 or 12, 0.5, 0), BackgroundColor3 = value and Color3.new(1,1,1) or context.Theme.Current.TextMuted })
-    end
-    state.Changed:Connect(function(value) render(value); Utility.SafeCallback(options.Callback, value) end)
-    button.Activated:Connect(function() state:Set(not state:Get()) end)
-    render(state:Get())
-    return Base.Handle(row, state)
-end
-
-end
-
 __modules["Components/Button"]=function()
 local Animation = __require("Services/Animation")
 local Utility = __require("Services/Utility")
@@ -157,69 +76,15 @@ end
 
 end
 
-__modules["Components/Keybind"]=function()
-local UserInputService=game:GetService("UserInputService")
-local State=__require("Core/State")
+__modules["Components/Card"]=function()
 local Utility=__require("Services/Utility")
-local Base=__require("Components/Base")
 
 return function(context,parent,options)
-    options=options or {}; local state=State.new(options.Default or Enum.KeyCode.Unknown); local listening=false
-    local row=Base.Row(context,parent,options,54)
-    local capture=Utility.Create("TextButton",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-12,0.5,0),Size=UDim2.fromOffset(94,32),BackgroundColor3=context.Theme.Current.Background,BackgroundTransparency=0.15,BorderSizePixel=0,AutoButtonColor=false,Font=Enum.Font.GothamMedium,TextColor3=context.Theme.Current.TextMuted,TextSize=11,Parent=row})
-    Utility.Corner(capture,UDim.new(0,8)); Utility.Stroke(capture,context.Theme.Current.Stroke,0.55)
-    local function render(key) capture.Text=listening and "PRESS A KEY" or key.Name:upper() end
-    capture.Activated:Connect(function() listening=true; render(state:Get()) end)
-    UserInputService.InputBegan:Connect(function(input,processed)
-        if listening and input.KeyCode~=Enum.KeyCode.Unknown then listening=false; state:Set(input.KeyCode); render(input.KeyCode); return end
-        if not processed and input.KeyCode==state:Get() then Utility.SafeCallback(options.Callback,input.KeyCode) end
-    end)
-    state.Changed:Connect(render); render(state:Get())
-    return Base.Handle(row,state)
-end
-
-end
-
-__modules["Components/Slider"]=function()
-local UserInputService = game:GetService("UserInputService")
-local State = __require("Core/State")
-local Animation = __require("Services/Animation")
-local Utility = __require("Services/Utility")
-local Base = __require("Components/Base")
-
-return function(context, parent, options)
-    options = options or {}
-    local min, max = options.Min or 0, options.Max or 100
-    local increment = options.Increment or 1
-    local state = State.new(math.clamp(options.Default or min, min, max))
-    local row = Base.Row(context, parent, options, 68)
-    local valueLabel = Utility.Create("TextLabel", {
-        AnchorPoint = Vector2.new(1,0), Position = UDim2.new(1,-16,0,10), Size = UDim2.fromOffset(70,20),
-        BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextColor3 = context.Theme.Current.TextMuted,
-        TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right, Parent = row,
-    })
-    local track = Utility.Create("Frame", {
-        Position = UDim2.new(0,16,1,-20), Size = UDim2.new(1,-32,0,5), BackgroundColor3 = context.Theme.Current.SurfaceHover,
-        BorderSizePixel = 0, Parent = row,
-    })
-    Utility.Corner(track, UDim.new(1,0))
-    local fill = Utility.Create("Frame", { Size = UDim2.fromScale(0,1), BackgroundColor3 = context.Theme.Current.Primary, BorderSizePixel = 0, Parent = track })
-    Utility.Corner(fill, UDim.new(1,0))
-    local dragging = false
-    local function render(value)
-        valueLabel.Text = tostring(value) .. (options.Suffix or "")
-        Animation.Tween(fill, { Size = UDim2.fromScale((value-min)/(max-min),1) }, 0.12)
-    end
-    local function update(input)
-        local ratio = math.clamp((input.Position.X-track.AbsolutePosition.X)/track.AbsoluteSize.X,0,1)
-        state:Set(math.floor((min+(max-min)*ratio)/increment+0.5)*increment)
-    end
-    track.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging=true; update(input) end end)
-    UserInputService.InputChanged:Connect(function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then update(input) end end)
-    UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging=false end end)
-    state.Changed:Connect(function(value) render(value); Utility.SafeCallback(options.Callback,value) end)
-    render(state:Get())
-    return Base.Handle(row,state)
+    options=options or {}; local theme=context.Theme.Current
+    local card=Utility.Create("Frame",{Name=options.Name or "Card",Size=options.Size or UDim2.new(1,0,0,100),BackgroundColor3=theme.SurfaceAlt,BackgroundTransparency=theme.Transparency,BorderSizePixel=0,Parent=parent})
+    Utility.Corner(card,theme.Radius); Utility.Stroke(card,theme.Stroke,0.62); Utility.Padding(card,16)
+    if options.Name then Utility.Create("TextLabel",{Size=UDim2.new(1,0,0,20),BackgroundTransparency=1,Font=Enum.Font.GothamSemibold,Text=options.Name,TextColor3=theme.Text,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,Parent=card}) end
+    return card
 end
 
 end
@@ -278,63 +143,6 @@ end
 
 end
 
-__modules["Components/Card"]=function()
-local Utility=__require("Services/Utility")
-
-return function(context,parent,options)
-    options=options or {}; local theme=context.Theme.Current
-    local card=Utility.Create("Frame",{Name=options.Name or "Card",Size=options.Size or UDim2.new(1,0,0,100),BackgroundColor3=theme.SurfaceAlt,BackgroundTransparency=theme.Transparency,BorderSizePixel=0,Parent=parent})
-    Utility.Corner(card,theme.Radius); Utility.Stroke(card,theme.Stroke,0.62); Utility.Padding(card,16)
-    if options.Name then Utility.Create("TextLabel",{Size=UDim2.new(1,0,0,20),BackgroundTransparency=1,Font=Enum.Font.GothamSemibold,Text=options.Name,TextColor3=theme.Text,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,Parent=card}) end
-    return card
-end
-
-end
-
-__modules["Components/Input"]=function()
-local State = __require("Core/State")
-local Utility = __require("Services/Utility")
-local Base = __require("Components/Base")
-
-return function(context, parent, options)
-    options = options or {}
-    local state = State.new(options.Default or "")
-    local row = Base.Row(context, parent, options, 62)
-    local box = Utility.Create("TextBox", {
-        AnchorPoint=Vector2.new(1,0.5), Position=UDim2.new(1,-12,0.5,0), Size=UDim2.new(0.46,0,0,34),
-        BackgroundColor3=context.Theme.Current.Background, BackgroundTransparency=0.25, BorderSizePixel=0,
-        ClearTextOnFocus=false, Font=Enum.Font.Gotham, PlaceholderText=options.Placeholder or "Type here...",
-        PlaceholderColor3=context.Theme.Current.TextMuted, Text=state:Get(), TextColor3=context.Theme.Current.Text,
-        TextSize=12, Parent=row,
-    })
-    Utility.Corner(box, UDim.new(0,8)); Utility.Stroke(box,context.Theme.Current.Stroke,0.55)
-    box.FocusLost:Connect(function(enterPressed)
-        local value = box.Text
-        if options.Validate and not options.Validate(value) then box.Text=state:Get(); return end
-        state:Set(value)
-        if options.Finished then Utility.SafeCallback(options.Callback,value,enterPressed) end
-    end)
-    if not options.Finished then box:GetPropertyChangedSignal("Text"):Connect(function() state:Set(box.Text) end) end
-    state.Changed:Connect(function(value) if box.Text ~= value then box.Text=value end; Utility.SafeCallback(options.Callback,value) end)
-    return Base.Handle(row,state)
-end
-
-end
-
-__modules["Components/Section"]=function()
-local Utility=__require("Services/Utility")
-
-return function(context,parent,options)
-    options=options or {}; local theme=context.Theme.Current
-    local section=Utility.Create("Frame",{Name=options.Name or "Section",Size=UDim2.new(1,0,0,32),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,Parent=parent})
-    Utility.Create("TextLabel",{Size=UDim2.new(1,0,0,24),BackgroundTransparency=1,Font=Enum.Font.GothamBold,Text=string.upper(options.Name or "SECTION"),TextColor3=theme.TextMuted,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,Parent=section})
-    local content=Utility.Create("Frame",{Position=UDim2.fromOffset(0,30),Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,Parent=section})
-    Utility.Create("UIListLayout",{Padding=UDim.new(0,8),SortOrder=Enum.SortOrder.LayoutOrder,Parent=content})
-    return content
-end
-
-end
-
 __modules["Components/Dropdown"]=function()
 local State = __require("Core/State")
 local Animation = __require("Services/Animation")
@@ -382,6 +190,217 @@ return function(context, parent, options)
     display(state:Get())
     return Base.Handle(row,state)
 end
+
+end
+
+__modules["Components/Input"]=function()
+local State = __require("Core/State")
+local Utility = __require("Services/Utility")
+local Base = __require("Components/Base")
+
+return function(context, parent, options)
+    options = options or {}
+    local state = State.new(options.Default or "")
+    local row = Base.Row(context, parent, options, 62)
+    local box = Utility.Create("TextBox", {
+        AnchorPoint=Vector2.new(1,0.5), Position=UDim2.new(1,-12,0.5,0), Size=UDim2.new(0.46,0,0,34),
+        BackgroundColor3=context.Theme.Current.Background, BackgroundTransparency=0.25, BorderSizePixel=0,
+        ClearTextOnFocus=false, Font=Enum.Font.Gotham, PlaceholderText=options.Placeholder or "Type here...",
+        PlaceholderColor3=context.Theme.Current.TextMuted, Text=state:Get(), TextColor3=context.Theme.Current.Text,
+        TextSize=12, Parent=row,
+    })
+    Utility.Corner(box, UDim.new(0,8)); Utility.Stroke(box,context.Theme.Current.Stroke,0.55)
+    box.FocusLost:Connect(function(enterPressed)
+        local value = box.Text
+        if options.Validate and not options.Validate(value) then box.Text=state:Get(); return end
+        state:Set(value)
+        if options.Finished then Utility.SafeCallback(options.Callback,value,enterPressed) end
+    end)
+    if not options.Finished then box:GetPropertyChangedSignal("Text"):Connect(function() state:Set(box.Text) end) end
+    state.Changed:Connect(function(value) if box.Text ~= value then box.Text=value end; Utility.SafeCallback(options.Callback,value) end)
+    return Base.Handle(row,state)
+end
+
+end
+
+__modules["Components/Keybind"]=function()
+local UserInputService=game:GetService("UserInputService")
+local State=__require("Core/State")
+local Utility=__require("Services/Utility")
+local Base=__require("Components/Base")
+
+return function(context,parent,options)
+    options=options or {}; local state=State.new(options.Default or Enum.KeyCode.Unknown); local listening=false
+    local row=Base.Row(context,parent,options,54)
+    local capture=Utility.Create("TextButton",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-12,0.5,0),Size=UDim2.fromOffset(94,32),BackgroundColor3=context.Theme.Current.Background,BackgroundTransparency=0.15,BorderSizePixel=0,AutoButtonColor=false,Font=Enum.Font.GothamMedium,TextColor3=context.Theme.Current.TextMuted,TextSize=11,Parent=row})
+    Utility.Corner(capture,UDim.new(0,8)); Utility.Stroke(capture,context.Theme.Current.Stroke,0.55)
+    local function render(key) capture.Text=listening and "PRESS A KEY" or key.Name:upper() end
+    capture.Activated:Connect(function() listening=true; render(state:Get()) end)
+    UserInputService.InputBegan:Connect(function(input,processed)
+        if listening and input.KeyCode~=Enum.KeyCode.Unknown then listening=false; state:Set(input.KeyCode); render(input.KeyCode); return end
+        if not processed and input.KeyCode==state:Get() then Utility.SafeCallback(options.Callback,input.KeyCode) end
+    end)
+    state.Changed:Connect(render); render(state:Get())
+    return Base.Handle(row,state)
+end
+
+end
+
+__modules["Components/Section"]=function()
+local Utility=__require("Services/Utility")
+
+return function(context,parent,options)
+    options=options or {}; local theme=context.Theme.Current
+    local section=Utility.Create("Frame",{Name=options.Name or "Section",Size=UDim2.new(1,0,0,32),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,Parent=parent})
+    Utility.Create("TextLabel",{Size=UDim2.new(1,0,0,24),BackgroundTransparency=1,Font=Enum.Font.GothamBold,Text=string.upper(options.Name or "SECTION"),TextColor3=theme.TextMuted,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,Parent=section})
+    local content=Utility.Create("Frame",{Position=UDim2.fromOffset(0,30),Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,Parent=section})
+    Utility.Create("UIListLayout",{Padding=UDim.new(0,8),SortOrder=Enum.SortOrder.LayoutOrder,Parent=content})
+    return content
+end
+
+end
+
+__modules["Components/Slider"]=function()
+local UserInputService = game:GetService("UserInputService")
+local State = __require("Core/State")
+local Animation = __require("Services/Animation")
+local Utility = __require("Services/Utility")
+local Base = __require("Components/Base")
+
+return function(context, parent, options)
+    options = options or {}
+    local min, max = options.Min or 0, options.Max or 100
+    local increment = options.Increment or 1
+    local state = State.new(math.clamp(options.Default or min, min, max))
+    local row = Base.Row(context, parent, options, 68)
+    local valueLabel = Utility.Create("TextLabel", {
+        AnchorPoint = Vector2.new(1,0), Position = UDim2.new(1,-16,0,10), Size = UDim2.fromOffset(70,20),
+        BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextColor3 = context.Theme.Current.TextMuted,
+        TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right, Parent = row,
+    })
+    local track = Utility.Create("Frame", {
+        Position = UDim2.new(0,16,1,-20), Size = UDim2.new(1,-32,0,5), BackgroundColor3 = context.Theme.Current.SurfaceHover,
+        BorderSizePixel = 0, Parent = row,
+    })
+    Utility.Corner(track, UDim.new(1,0))
+    local fill = Utility.Create("Frame", { Size = UDim2.fromScale(0,1), BackgroundColor3 = context.Theme.Current.Primary, BorderSizePixel = 0, Parent = track })
+    Utility.Corner(fill, UDim.new(1,0))
+    local dragging = false
+    local function render(value)
+        valueLabel.Text = tostring(value) .. (options.Suffix or "")
+        Animation.Tween(fill, { Size = UDim2.fromScale((value-min)/(max-min),1) }, 0.12)
+    end
+    local function update(input)
+        local ratio = math.clamp((input.Position.X-track.AbsolutePosition.X)/track.AbsoluteSize.X,0,1)
+        state:Set(math.floor((min+(max-min)*ratio)/increment+0.5)*increment)
+    end
+    track.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging=true; update(input) end end)
+    UserInputService.InputChanged:Connect(function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then update(input) end end)
+    UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging=false end end)
+    state.Changed:Connect(function(value) render(value); Utility.SafeCallback(options.Callback,value) end)
+    render(state:Get())
+    return Base.Handle(row,state)
+end
+
+end
+
+__modules["Components/Toggle"]=function()
+local State = __require("Core/State")
+local Animation = __require("Services/Animation")
+local Utility = __require("Services/Utility")
+local Base = __require("Components/Base")
+
+return function(context, parent, options)
+    options = options or {}
+    local theme = context.Theme.Current
+    local state = State.new(options.Default == true)
+    local row = Base.Row(context, parent, options, 54)
+    local button = Utility.Create("TextButton", {
+        AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0), Size = UDim2.fromOffset(42, 24),
+        BackgroundColor3 = theme.SurfaceHover, BorderSizePixel = 0, Text = "", AutoButtonColor = false, Parent = row,
+    })
+    Utility.Corner(button, UDim.new(1, 0))
+    local knob = Utility.Create("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 12, 0.5, 0), Size = UDim2.fromOffset(16, 16),
+        BackgroundColor3 = theme.TextMuted, BorderSizePixel = 0, Parent = button,
+    })
+    Utility.Corner(knob, UDim.new(1, 0))
+    local function render(value)
+        Animation.Tween(button, { BackgroundColor3 = value and context.Theme.Current.Primary or context.Theme.Current.SurfaceHover })
+        Animation.Tween(knob, { Position = UDim2.new(0, value and 30 or 12, 0.5, 0), BackgroundColor3 = value and Color3.new(1,1,1) or context.Theme.Current.TextMuted })
+    end
+    state.Changed:Connect(function(value) render(value); Utility.SafeCallback(options.Callback, value) end)
+    button.Activated:Connect(function() state:Set(not state:Get()) end)
+    render(state:Get())
+    return Base.Handle(row, state)
+end
+
+end
+
+__modules["Core/Engine"]=function()
+local Players=game:GetService("Players")
+local Lighting=game:GetService("Lighting")
+local Theme=__require("Core/Theme")
+local Window=__require("Core/Window")
+local Config=__require("Services/Config")
+local Animation=__require("Services/Animation")
+local Utility=__require("Services/Utility")
+local Dark=__require("Themes/Dark")
+local Light=__require("Themes/Light")
+local Custom=__require("Themes/Custom")
+
+local Engine={Version="1.0.0",Themes={Dark=Dark,Light=Light},Windows={}}
+Engine.__index=Engine
+
+local function resolveParent()
+    if gethui then local ok,result=pcall(gethui); if ok then return result end end
+    local player=Players.LocalPlayer
+    return player and player:WaitForChild("PlayerGui") or game:GetService("CoreGui")
+end
+
+function Engine.new()
+    local self=setmetatable({},Engine)
+    self.Theme=Theme.new(Dark); self.Windows={}; self.Config=Config.new("AxiomUI")
+    self.Gui=Utility.Create("ScreenGui",{Name="AxiomUIEngine",ResetOnSpawn=false,IgnoreGuiInset=true,ZIndexBehavior=Enum.ZIndexBehavior.Sibling,Parent=resolveParent()})
+    self.Toasts=Utility.Create("Frame",{AnchorPoint=Vector2.new(1,1),Position=UDim2.new(1,-20,1,-20),Size=UDim2.fromOffset(340,500),BackgroundTransparency=1,Parent=self.Gui})
+    Utility.Create("UIListLayout",{VerticalAlignment=Enum.VerticalAlignment.Bottom,HorizontalAlignment=Enum.HorizontalAlignment.Right,Padding=UDim.new(0,10),Parent=self.Toasts})
+    return self
+end
+
+function Engine:CreateWindow(options)
+    options=options or {}
+    if options.Theme then self:SetTheme(options.Theme) end
+    if options.Blur then
+        local blur=Lighting:FindFirstChild("AxiomBlur") or Instance.new("BlurEffect"); blur.Name="AxiomBlur"; blur.Size=0; blur.Parent=Lighting; Animation.Tween(blur,{Size=12},0.3)
+    end
+    local window=Window.new(self,options); table.insert(self.Windows,window); return window
+end
+
+function Engine:SetTheme(theme)
+    local resolved=type(theme)=="string" and self.Themes[theme] or theme
+    assert(type(resolved)=="table","Unknown Axiom theme")
+    self.Theme:Apply(resolved)
+end
+
+function Engine:CreateTheme(overrides) return Custom(overrides) end
+
+function Engine:Notify(options)
+    options=options or {}; local t=self.Theme.Current
+    local toast=Utility.Create("Frame",{Size=UDim2.fromOffset(0,82),BackgroundColor3=t.Surface,BackgroundTransparency=0.04,BorderSizePixel=0,ClipsDescendants=true,Parent=self.Toasts}); Utility.Corner(toast,UDim.new(0,12)); Utility.Stroke(toast,t.Stroke,0.35)
+    Utility.Create("Frame",{Size=UDim2.fromOffset(4,82),BackgroundColor3=options.Color or t.Primary,BorderSizePixel=0,Parent=toast})
+    Utility.Create("TextLabel",{Position=UDim2.fromOffset(18,12),Size=UDim2.new(1,-32,0,20),BackgroundTransparency=1,Font=Enum.Font.GothamSemibold,Text=options.Title or "Axiom",TextColor3=t.Text,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,Parent=toast})
+    Utility.Create("TextLabel",{Position=UDim2.fromOffset(18,35),Size=UDim2.new(1,-32,0,34),BackgroundTransparency=1,Font=Enum.Font.Gotham,Text=options.Description or "",TextColor3=t.TextMuted,TextSize=11,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,Parent=toast})
+    Animation.Tween(toast,{Size=UDim2.fromOffset(340,82)},0.32)
+    task.delay(options.Duration or 4,function() Animation.Tween(toast,{Size=UDim2.fromOffset(0,82),BackgroundTransparency=1},0.3); task.delay(0.32,function() toast:Destroy() end) end)
+    return toast
+end
+
+function Engine:Destroy()
+    local blur=Lighting:FindFirstChild("AxiomBlur"); if blur then blur:Destroy() end
+    self.Gui:Destroy()
+end
+
+return Engine
 
 end
 
@@ -492,73 +511,6 @@ function Theme:Apply(nextTheme)
 end
 
 return Theme
-
-end
-
-__modules["Core/Engine"]=function()
-local Players=game:GetService("Players")
-local Lighting=game:GetService("Lighting")
-local Theme=__require("Core/Theme")
-local Window=__require("Core/Window")
-local Config=__require("Services/Config")
-local Animation=__require("Services/Animation")
-local Utility=__require("Services/Utility")
-local Dark=__require("Themes/Dark")
-local Light=__require("Themes/Light")
-local Custom=__require("Themes/Custom")
-
-local Engine={Version="1.0.0",Themes={Dark=Dark,Light=Light},Windows={}}
-Engine.__index=Engine
-
-local function resolveParent()
-    if gethui then local ok,result=pcall(gethui); if ok then return result end end
-    local player=Players.LocalPlayer
-    return player and player:WaitForChild("PlayerGui") or game:GetService("CoreGui")
-end
-
-function Engine.new()
-    local self=setmetatable({},Engine)
-    self.Theme=Theme.new(Dark); self.Windows={}; self.Config=Config.new("AxiomUI")
-    self.Gui=Utility.Create("ScreenGui",{Name="AxiomUIEngine",ResetOnSpawn=false,IgnoreGuiInset=true,ZIndexBehavior=Enum.ZIndexBehavior.Sibling,Parent=resolveParent()})
-    self.Toasts=Utility.Create("Frame",{AnchorPoint=Vector2.new(1,1),Position=UDim2.new(1,-20,1,-20),Size=UDim2.fromOffset(340,500),BackgroundTransparency=1,Parent=self.Gui})
-    Utility.Create("UIListLayout",{VerticalAlignment=Enum.VerticalAlignment.Bottom,HorizontalAlignment=Enum.HorizontalAlignment.Right,Padding=UDim.new(0,10),Parent=self.Toasts})
-    return self
-end
-
-function Engine:CreateWindow(options)
-    options=options or {}
-    if options.Theme then self:SetTheme(options.Theme) end
-    if options.Blur then
-        local blur=Lighting:FindFirstChild("AxiomBlur") or Instance.new("BlurEffect"); blur.Name="AxiomBlur"; blur.Size=0; blur.Parent=Lighting; Animation.Tween(blur,{Size=12},0.3)
-    end
-    local window=Window.new(self,options); table.insert(self.Windows,window); return window
-end
-
-function Engine:SetTheme(theme)
-    local resolved=type(theme)=="string" and self.Themes[theme] or theme
-    assert(type(resolved)=="table","Unknown Axiom theme")
-    self.Theme:Apply(resolved)
-end
-
-function Engine:CreateTheme(overrides) return Custom(overrides) end
-
-function Engine:Notify(options)
-    options=options or {}; local t=self.Theme.Current
-    local toast=Utility.Create("Frame",{Size=UDim2.fromOffset(0,82),BackgroundColor3=t.Surface,BackgroundTransparency=0.04,BorderSizePixel=0,ClipsDescendants=true,Parent=self.Toasts}); Utility.Corner(toast,UDim.new(0,12)); Utility.Stroke(toast,t.Stroke,0.35)
-    Utility.Create("Frame",{Size=UDim2.fromOffset(4,82),BackgroundColor3=options.Color or t.Primary,BorderSizePixel=0,Parent=toast})
-    Utility.Create("TextLabel",{Position=UDim2.fromOffset(18,12),Size=UDim2.new(1,-32,0,20),BackgroundTransparency=1,Font=Enum.Font.GothamSemibold,Text=options.Title or "Axiom",TextColor3=t.Text,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,Parent=toast})
-    Utility.Create("TextLabel",{Position=UDim2.fromOffset(18,35),Size=UDim2.new(1,-32,0,34),BackgroundTransparency=1,Font=Enum.Font.Gotham,Text=options.Description or "",TextColor3=t.TextMuted,TextSize=11,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,Parent=toast})
-    Animation.Tween(toast,{Size=UDim2.fromOffset(340,82)},0.32)
-    task.delay(options.Duration or 4,function() Animation.Tween(toast,{Size=UDim2.fromOffset(0,82),BackgroundTransparency=1},0.3); task.delay(0.32,function() toast:Destroy() end) end)
-    return toast
-end
-
-function Engine:Destroy()
-    local blur=Lighting:FindFirstChild("AxiomBlur"); if blur then blur:Destroy() end
-    self.Gui:Destroy()
-end
-
-return Engine
 
 end
 
@@ -777,6 +729,42 @@ return Window
 
 end
 
+__modules["Services/Animation"]=function()
+local TweenService = game:GetService("TweenService")
+local Animation = {}
+
+function Animation.Tween(instance, properties, duration, style, direction)
+    local info = TweenInfo.new(duration or 0.22, style or Enum.EasingStyle.Quint, direction or Enum.EasingDirection.Out)
+    local tween = TweenService:Create(instance, info, properties)
+    tween:Play()
+    return tween
+end
+
+function Animation.Hover(gui, normal, hovered)
+    gui.MouseEnter:Connect(function() Animation.Tween(gui, hovered) end)
+    gui.MouseLeave:Connect(function() Animation.Tween(gui, normal) end)
+end
+
+function Animation.Ripple(button, color)
+    local ripple = Instance.new("Frame")
+    ripple.Name = "AxiomRipple"
+    ripple.AnchorPoint = Vector2.new(0.5, 0.5)
+    ripple.Position = UDim2.fromScale(0.5, 0.5)
+    ripple.Size = UDim2.fromOffset(0, 0)
+    ripple.BackgroundColor3 = color or Color3.new(1, 1, 1)
+    ripple.BackgroundTransparency = 0.72
+    ripple.ZIndex = button.ZIndex + 2
+    ripple.Parent = button
+    Instance.new("UICorner", ripple).CornerRadius = UDim.new(1, 0)
+    local target = math.max(button.AbsoluteSize.X, button.AbsoluteSize.Y) * 1.8
+    Animation.Tween(ripple, { Size = UDim2.fromOffset(target, target), BackgroundTransparency = 1 }, 0.42)
+    task.delay(0.45, function() ripple:Destroy() end)
+end
+
+return Animation
+
+end
+
 __modules["Services/Config"]=function()
 local HttpService=game:GetService("HttpService")
 local Config={}; Config.__index=Config
@@ -847,42 +835,6 @@ return Config
 
 end
 
-__modules["Services/Animation"]=function()
-local TweenService = game:GetService("TweenService")
-local Animation = {}
-
-function Animation.Tween(instance, properties, duration, style, direction)
-    local info = TweenInfo.new(duration or 0.22, style or Enum.EasingStyle.Quint, direction or Enum.EasingDirection.Out)
-    local tween = TweenService:Create(instance, info, properties)
-    tween:Play()
-    return tween
-end
-
-function Animation.Hover(gui, normal, hovered)
-    gui.MouseEnter:Connect(function() Animation.Tween(gui, hovered) end)
-    gui.MouseLeave:Connect(function() Animation.Tween(gui, normal) end)
-end
-
-function Animation.Ripple(button, color)
-    local ripple = Instance.new("Frame")
-    ripple.Name = "AxiomRipple"
-    ripple.AnchorPoint = Vector2.new(0.5, 0.5)
-    ripple.Position = UDim2.fromScale(0.5, 0.5)
-    ripple.Size = UDim2.fromOffset(0, 0)
-    ripple.BackgroundColor3 = color or Color3.new(1, 1, 1)
-    ripple.BackgroundTransparency = 0.72
-    ripple.ZIndex = button.ZIndex + 2
-    ripple.Parent = button
-    Instance.new("UICorner", ripple).CornerRadius = UDim.new(1, 0)
-    local target = math.max(button.AbsoluteSize.X, button.AbsoluteSize.Y) * 1.8
-    Animation.Tween(ripple, { Size = UDim2.fromOffset(target, target), BackgroundTransparency = 1 }, 0.42)
-    task.delay(0.45, function() ripple:Destroy() end)
-end
-
-return Animation
-
-end
-
 __modules["Services/Icons"]=function()
 local Icons = {
     home = "rbxassetid://10723407389",
@@ -942,9 +894,57 @@ return Utility
 
 end
 
+__modules["Themes/Custom"]=function()
+local Dark = __require("Themes/Dark")
+
+return function(overrides)
+    local theme = table.clone(Dark)
+    theme.Name = "Axiom Custom"
+    for key, value in pairs(overrides or {}) do
+        theme[key] = value
+    end
+    return theme
+end
+
+end
+
+__modules["Themes/Dark"]=function()
+return {
+    Name = "Axiom Dark",
+    Background = Color3.fromRGB(7, 8, 14),
+    Surface = Color3.fromRGB(13, 15, 24),
+    SurfaceAlt = Color3.fromRGB(22, 24, 37),
+    SurfaceHover = Color3.fromRGB(32, 34, 51),
+    Stroke = Color3.fromRGB(61, 64, 88),
+    Text = Color3.fromRGB(241, 243, 255),
+    TextMuted = Color3.fromRGB(143, 149, 174),
+    Primary = Color3.fromRGB(139, 55, 255),
+    Secondary = Color3.fromRGB(31, 130, 255),
+    Success = Color3.fromRGB(53, 211, 153),
+    Danger = Color3.fromRGB(255, 91, 121),
+    Warning = Color3.fromRGB(255, 190, 76),
+    Radius = UDim.new(0, 11),
+    Transparency = 0.12,
+    AcrylicTransparency = 0.09,
+    TweenTime = 0.22,
+}
+
+end
+
+__modules["Themes/Light"]=function()
+return {
+    Name="Axiom Light", Background=Color3.fromRGB(238,241,249), Surface=Color3.fromRGB(250,251,255),
+    SurfaceAlt=Color3.fromRGB(228,232,244), SurfaceHover=Color3.fromRGB(215,221,239), Stroke=Color3.fromRGB(184,191,215),
+    Text=Color3.fromRGB(24,27,39), TextMuted=Color3.fromRGB(91,99,126), Primary=Color3.fromRGB(102,78,235),
+    Secondary=Color3.fromRGB(25,137,229), Success=Color3.fromRGB(22,164,111), Danger=Color3.fromRGB(225,65,96),
+    Warning=Color3.fromRGB(218,145,34), Radius=UDim.new(0,10), Transparency=0.04, AcrylicTransparency=0.08, TweenTime=0.22,
+}
+
+end
+
 __modules["init"]=function()
 -- Axiom UI Engine 1.0.0
--- Package entry point for Rojo/Wally-style module trees.
+-- Entry point — for loadstring use dist/Axiom.lua
 local Engine=__require("Core/Engine")
 return Engine.new()
 

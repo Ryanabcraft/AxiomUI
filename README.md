@@ -12,7 +12,7 @@
 </p>
 
 <p>
-  <b>Feita para quem faz SCRIPT — não para Studio.</b><br/>
+  <b>Feita para quem faz SCRIPT.</b><br/>
   1 linha <code>loadstring</code> · Acrylic desktop · Sidebar inspector · Estado reativo · Temas live
 </p>
 
@@ -68,7 +68,7 @@ Tab:AddButton({Name="Ativar", Callback=function()
 end})
 ```
 
-**Pronto.** Seu executor roda e a UI aparece no jogo — sem Studio, sem Rojo, sem `ReplicatedStorage`.
+**Pronto.** Seu executor roda e a UI aparece no jogo instantaneamente.
 
 ### 📦 Alternativa — Arquivo local
 
@@ -182,8 +182,6 @@ Axiom:Notify({Title="Axiom carregada!", Description="Pronto para usar."})
 ---
 
 ## ❓ FAQ para scripters
-
-**Precisa de Rojo/Studio?** Não. Axiom foi feita para `loadstring(game:HttpGet(...))()` direto no executor. Rojo é opcional.
 
 **Funciona em qual executor?** Qualquer um que tenha `loadstring` + `game:HttpGet` (Synapse, Fluxus, Hydrogen, etc). Testado com `gethui` fallback.
 

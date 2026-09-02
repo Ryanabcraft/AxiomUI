@@ -1,4 +1,4 @@
-local Axiom=require(script.Parent.Parent)
+local Axiom=loadstring(game:HttpGet("https://raw.githubusercontent.com/Ryanabcraft/AxiomUI/main/dist/Axiom.lua"))()
 
 local Window=Axiom:CreateWindow({
     Title="Axiom Control Center", Subtitle="PREMIUM INTERFACE · v1.0", Theme="Dark",

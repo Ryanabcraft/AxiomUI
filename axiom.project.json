@@ -1,7 +1,0 @@
-{
-  "name": "AxiomUIEngine",
-  "tree": {
-    "$className": "ReplicatedStorage",
-    "Axiom": { "$path": "." }
-  }
-}
