@@ -18,6 +18,7 @@ jobs:
       - run: python build.py
       - run: git diff --exit-code -- dist/Axiom.lua
       - run: python validate_public.py
+      - run: python -m unittest mcp.test_server
       - uses: actions/upload-artifact@v4
         with:
           name: Axiom-${{ github.sha }}

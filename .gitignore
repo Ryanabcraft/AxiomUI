@@ -4,6 +4,8 @@ _packages/
 *.rbxlx
 # Build
 *.map
+__pycache__/
+*.py[cod]
 # OS
 .DS_Store
 Thumbs.db

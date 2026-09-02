@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-65E6A7?labelColor=090A10)](LICENSE)
 [![Icons](https://img.shields.io/badge/icons-247_Lucide-8B5CF6?labelColor=090A10)](Documentation/ICONS.md)
 
-[Site](https://ryanabcraft.github.io/AxiomUI/) · [API](Documentation/API.md) · [Ícones](Documentation/ICONS.md) · [Design system](Documentation/DESIGN_SYSTEM.md) · [Exemplos](Examples)
+[Site](https://ryanabcraft.github.io/AxiomUI/) · [API](Documentation/API.md) · [Ícones](Documentation/ICONS.md) · [Design system](Documentation/DESIGN_SYSTEM.md) · [MCP para IA](mcp/README.md) · [Exemplos](Examples)
 
 </div>
 
@@ -155,6 +155,16 @@ Axiom:SetTheme(Neon)
 
 `AddTab`, `SelectTab`, `GetDeviceMode`, `Minimize`, `Maximize`, `Hide`, `Show`, `ToggleVisibility`, `Close`, `SetTheme` e `Destroy`.
 
+## MCP para assistentes de IA
+
+O servidor local em `mcp/axiom_mcp.py` entrega a documentação oficial como resources MCP e oferece tools para pesquisar a API, consultar documentos, resolver ícones e ler metadados reais do projeto.
+
+```bash
+python mcp/axiom_mcp.py
+```
+
+Ele usa `stdio`, não possui dependências externas e inclui exemplos de configuração para Claude Desktop, Cursor e OpenCode. Consulte o [guia do Axiom MCP](mcp/README.md).
+
 ## Desenvolvimento
 
 ```bash
@@ -171,6 +181,7 @@ Themes/         Dark, Light e Custom
 Documentation/  API, catálogo de ícones e design system
 Examples/       Showcase e validação de integridade
 docs/           Site estático publicado no GitHub Pages
+mcp/            Servidor de documentação para assistentes de IA
 ```
 
 ## Compatibilidade
