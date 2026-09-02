@@ -176,10 +176,8 @@ Axiom:<span class="text-[#1F82FF]">Notify</span>({Title=<span class="text-[#35D3
     <h2 class="mt-4 text-[34px] font-black tracking-[-0.02em]">Cole e rode.</h2>
     <p class="mt-3 text-sm leading-6 text-white/50">Axiom foi feita para <b class="text-white">executors</b> — copie 1 linha e seu script já tem UI premium.</p>
   </div>
-  <div class="mt-8 flex justify-center gap-2 flex-wrap">
-    <button onclick="switchInstall('script')" id="btn-script" class="install-tab px-5 py-2.5 rounded-full bg-[#8B37FF] text-white font-bold text-sm border border-[#8B37FF]">🔥 Script (loadstring)</button>
-    <button onclick="switchInstall('raw')" id="btn-raw" class="install-tab px-5 py-2.5 rounded-full bg-white/[0.04] text-white/60 font-semibold text-sm border border-white/10">Arquivo .lua</button>
-
+  <div class="mt-8 flex justify-center">
+    <div class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#8B37FF] text-white font-bold text-sm border border-[#8B37FF]">🔥 Script — 1 linha loadstring</div>
   </div>
   <div class="mt-6 grid lg:grid-cols-[1.1fr_0.9fr] gap-6">
     <div class="rounded-2xl border border-white/[0.06] bg-[#0D0F18] overflow-hidden">
@@ -252,11 +250,6 @@ script:{label:'Seu executor • cole e rode',code:`<span class="text-[#8B37FF]">
 <span class="text-[#8B37FF]">local</span> Tab = Window:<span class="text-[#1F82FF]">AddTab</span>({Name=<span class="text-[#35D399]">"Main"</span>, Icon=<span class="text-[#35D399]">"home"</span>})
 Tab:<span class="text-[#1F82FF]">AddToggle</span>({Name=<span class="text-[#35D399]">"Auto Farm"</span>, Default=<span class="text-[#FFBE4C]">false</span>})
 Tab:<span class="text-[#1F82FF]">AddButton</span>({Name=<span class="text-[#35D399]">"Ativar"</span>, Callback=<span class="text-[#8B37FF]">function</span>() <span class="text-[#1F82FF]">print</span>(<span class="text-[#35D399]">"go"</span>) <span class="text-[#8B37FF]">end</span>})`},
-raw:{label:'Arquivo local • readfile',code:`<span class="text-white/30">-- Baixe dist/Axiom.lua e salve como Axiom.lua</span>
-<span class="text-[#8B37FF]">local</span> Axiom = <span class="text-[#1F82FF]">loadstring</span>(<span class="text-[#1F82FF]">readfile</span>(<span class="text-[#35D399]">"Axiom.lua"</span>))()
-<span class="text-[#8B37FF]">local</span> Window = Axiom:<span class="text-[#1F82FF]">CreateWindow</span>({Title=<span class="text-[#35D399]">"Meu Hub"</span>})
-Window:<span class="text-[#1F82FF]">AddTab</span>({Name=<span class="text-[#35D399]">"Main"</span>}):<span class="text-[#1F82FF]">AddButton</span>({Name=<span class="text-[#35D399]">"Hello"</span>})`},
-
 };
 function switchInstall(k){
   document.querySelectorAll('.install-tab').forEach(b=>{
