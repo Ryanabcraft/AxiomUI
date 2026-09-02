@@ -212,7 +212,7 @@ def project_metadata() -> dict[str, Any]:
         "requirements": ["loadstring", "game:HttpGet"],
         "optionalFilesystem": ["writefile", "readfile", "isfile", "makefolder"],
         "repository": "https://github.com/Ryanabcraft/AxiomUI",
-        "site": "https://ryanabcraft.github.io/AxiomUI/",
+        "site": "https://axiom-ui-engine.vercel.app/",
         "bundle": "https://raw.githubusercontent.com/Ryanabcraft/AxiomUI/main/dist/Axiom.lua",
     }
 

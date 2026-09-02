@@ -1,6 +1,31 @@
 # Axiom MCP Server
 
-Servidor MCP local que transforma a documentação e o registry do Axiom em contexto estruturado para assistentes de IA. Ele lê o próprio repositório, portanto versão, tamanho do bundle e catálogo de ícones não ficam duplicados em uma base separada.
+Servidor MCP que transforma a documentação e o registry do Axiom em contexto estruturado para assistentes de IA. Ele lê o próprio repositório, portanto versão, tamanho do bundle e catálogo de ícones não ficam duplicados em uma base separada.
+
+## Endpoint remoto
+
+Use o transporte Streamable HTTP sem instalação local:
+
+```text
+https://axiom-ui-engine.vercel.app/mcp
+```
+
+Exemplo para OpenCode:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "axiom": {
+      "type": "remote",
+      "url": "https://axiom-ui-engine.vercel.app/mcp",
+      "enabled": true
+    }
+  }
+}
+```
+
+O servidor local por `stdio` permanece disponível para uso offline e desenvolvimento.
 
 ## Requisitos
 

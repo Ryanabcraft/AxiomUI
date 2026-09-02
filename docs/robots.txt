@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://ryanabcraft.github.io/AxiomUI/sitemap.xml
+Sitemap: https://axiom-ui-engine.vercel.app/sitemap.xml

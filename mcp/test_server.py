@@ -8,6 +8,7 @@ import sys
 import unittest
 
 from mcp import axiom_mcp
+from api.mcp import process_jsonrpc
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -147,6 +148,23 @@ class AxiomMcpTests(unittest.TestCase):
             axiom_mcp.read_message(BytesIO(b"Content-Length: 20\r\n\r\n{}"))
         with self.assertRaises(ValueError):
             axiom_mcp.read_message(BytesIO(b'{"value":NaN}\n'))
+
+    def test_http_adapter_handles_requests_notifications_and_bad_json(self):
+        request = json.dumps({"jsonrpc": "2.0", "id": 7, "method": "tools/list", "params": {}}).encode()
+        notification = json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}).encode()
+
+        status, response = process_jsonrpc(request)
+        notification_status, notification_response = process_jsonrpc(notification)
+        invalid_status, invalid_response = process_jsonrpc(b'{"jsonrpc":')
+        large_status, large_response = process_jsonrpc(b"")
+
+        self.assertEqual(status, 200)
+        self.assertEqual(len(response["result"]["tools"]), 4)
+        self.assertEqual((notification_status, notification_response), (202, None))
+        self.assertEqual(invalid_status, 400)
+        self.assertEqual(invalid_response["error"]["code"], -32700)
+        self.assertEqual(large_status, 413)
+        self.assertEqual(large_response["error"]["code"], -32600)
 
 
 if __name__ == "__main__":

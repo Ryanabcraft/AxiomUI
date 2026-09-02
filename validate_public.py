@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate public documentation and the static GitHub Pages site."""
+"""Validate public documentation and static site routes."""
 
 from html.parser import HTMLParser
 from pathlib import Path
@@ -24,22 +24,30 @@ class PageParser(HTMLParser):
             self.references.append(values[attribute])
 
 
-index=(SITE/"index.html").read_text(encoding="utf-8")
-parser=PageParser()
-parser.feed(index)
+pages={"/":SITE/"index.html","/mcp":SITE/"mcp.html"}
+page_text={}
+for route,page in pages.items():
+    content=page.read_text(encoding="utf-8")
+    page_text[route]=content
+    parser=PageParser()
+    parser.feed(content)
+    for reference in parser.references:
+        if reference.startswith(("http://","https://","mailto:")):
+            continue
+        if reference.startswith("#"):
+            assert reference[1:] in parser.ids,f"Broken anchor on {route}: {reference}"
+            continue
+        path=reference.split("#",1)[0]
+        if path in pages:
+            continue
+        target=SITE/path.lstrip("/")
+        assert target.is_file(),f"Missing site asset on {route}: {reference}"
 
-for reference in parser.references:
-    if reference.startswith(("http://","https://","mailto:")):
-        continue
-    if reference.startswith("#"):
-        assert reference[1:] in parser.ids,f"Broken anchor: {reference}"
-        continue
-    target=(SITE/reference.split("#",1)[0]).resolve()
-    assert target.is_file(),f"Missing site asset: {reference}"
+index=page_text["/"]
 
 public_text="\n".join([
     (ROOT/"README.md").read_text(encoding="utf-8"),
-    index,
+    *page_text.values(),
 ])
 for stale in ("94KB","94 KB","drop-in para","qualquer executor"):
     assert stale.lower() not in public_text.lower(),f"Stale public claim: {stale}"

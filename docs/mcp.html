@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Axiom MCP | Documentação oficial para assistentes de IA</title>
+  <meta name="description" content="Conecte assistentes de IA à API, aos ícones e à documentação oficial do Axiom pelo endpoint MCP remoto.">
+  <meta name="theme-color" content="#090a10">
+  <link rel="canonical" href="https://axiom-ui-engine.vercel.app/mcp">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="mcp-page">
+  <a class="skip-link" href="#main">Pular para o conteúdo</a>
+  <header class="site-header mcp-header">
+    <a class="brand" href="/" aria-label="Axiom, início"><svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true"><path d="M7 27 17.9 6 29 27h-5.6l-5.5-11.4L12.5 27H7Z"/><path class="axis" d="M10 23h16"/></svg><span>AXIOM</span><small>MCP SERVER</small></a>
+    <nav class="mcp-nav" aria-label="Navegação MCP"><a href="#connect">Conectar</a><a href="#tools">Tools</a><a href="#resources">Resources</a></nav>
+    <a class="header-cta" href="https://github.com/Ryanabcraft/AxiomUI/tree/main/mcp">Ver código <span>↗</span></a>
+  </header>
+  <main id="main" class="mcp-main">
+    <section class="mcp-hero section-shell">
+      <div class="mcp-hero-copy"><div class="eyebrow"><span class="status-dot"></span> ENDPOINT PÚBLICO / STATELESS</div><h1>A documentação que a IA <em>não precisa adivinhar.</em></h1><p>O Axiom MCP entrega a API canônica, o catálogo de 247 ícones e os metadados reais do engine diretamente ao seu assistente.</p><div class="hero-actions"><a class="button primary" href="#connect">Conectar endpoint</a><a class="button ghost" href="/">Voltar ao Axiom</a></div></div>
+      <div class="endpoint-panel" aria-label="Status do endpoint MCP"><div class="endpoint-head"><span>STREAMABLE HTTP</span><b><i></i> ONLINE</b></div><code>https://axiom-ui-engine.vercel.app/mcp</code><dl><div><dt>POST</dt><dd>JSON-RPC 2.0</dd></div><div><dt>GET</dt><dd>Documentação</dd></div><div><dt>AUTH</dt><dd>Público</dd></div></dl></div>
+    </section>
+    <section id="connect" class="mcp-connect section-shell">
+      <div><h2>Conecte como servidor remoto.</h2><p>Clientes compatíveis com MCP HTTP podem usar a mesma URL. Para execução local, o servidor <code>stdio</code> continua disponível no repositório.</p></div>
+      <div class="code-window mcp-code"><div class="code-header"><span>opencode.json</span><button class="copy-button" type="button" data-copy="mcp-code">Copiar</button></div><pre><code id="mcp-code">{
+  "mcp": {
+    "axiom": {
+      "type": "remote",
+      "url": "https://axiom-ui-engine.vercel.app/mcp",
+      "enabled": true
+    }
+  }
+}</code></pre></div>
+    </section>
+    <section id="tools" class="mcp-capabilities section-shell">
+      <div class="mcp-section-heading"><h2>Quatro tools, uma fonte de verdade.</h2><p>As respostas vêm dos arquivos oficiais do repositório, não de uma cópia editorial separada.</p></div>
+      <div class="capability-list"><article><code>search_axiom_docs</code><p>Pesquisa métodos, options e comportamentos por seção.</p><span>SEARCH</span></article><article><code>get_axiom_document</code><p>Lê um documento completo ou um heading específico.</p><span>READ</span></article><article><code>lookup_axiom_icon</code><p>Resolve nomes, aliases, IDs e ContentIds como o engine.</p><span>RESOLVE</span></article><article><code>get_axiom_metadata</code><p>Retorna versão, bundle, módulos, requisitos e links atuais.</p><span>INSPECT</span></article></div>
+    </section>
+    <section id="resources" class="mcp-resources section-shell"><div><h2>Resources disponíveis</h2><p>O prompt <code>build-axiom-interface</code> orienta o modelo a validar métodos e ícones antes de escrever Luau.</p></div><ul><li><code>axiom://docs/overview</code></li><li><code>axiom://docs/api</code></li><li><code>axiom://docs/icons</code></li><li><code>axiom://docs/design-system</code></li><li><code>axiom://examples/showcase</code></li></ul></section>
+  </main>
+  <footer class="mcp-footer"><div class="footer-main"><a class="brand" href="/"><svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true"><path d="M7 27 17.9 6 29 27h-5.6l-5.5-11.4L12.5 27H7Z"/><path class="axis" d="M10 23h16"/></svg><span>AXIOM MCP</span></a><p>Contexto oficial para interfaces Axiom corretas.</p></div><div class="footer-bottom"><span>Streamable HTTP / JSON-RPC 2.0</span><span>Sem autenticação</span></div></footer>
+  <div class="copy-toast" role="status" aria-live="polite">Configuração copiada</div><script src="/app.js" defer></script>
+</body>
+</html>
