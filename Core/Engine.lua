@@ -5,6 +5,7 @@ local Config=require(script.Parent.Parent.Services.Config)
 local Animation=require(script.Parent.Parent.Services.Animation)
 local Cleanup=require(script.Parent.Parent.Services.Cleanup)
 local Utility=require(script.Parent.Parent.Services.Utility)
+local Icons=require(script.Parent.Parent.Services.Icons)
 local Dark=require(script.Parent.Parent.Themes.Dark)
 local Light=require(script.Parent.Parent.Themes.Light)
 local Custom=require(script.Parent.Parent.Themes.Custom)
@@ -23,6 +24,7 @@ function Engine.new()
     self.Theme=Theme.new(Dark)
     self.Windows={}
     self.Config=Config.new("AxiomUI")
+    self.Icons=Icons
     self._Cleanup=Cleanup.new()
     self._Destroyed=false
     self.Gui=Utility.Create("ScreenGui",{Name="AxiomUIEngine",ResetOnSpawn=false,IgnoreGuiInset=true,ZIndexBehavior=Enum.ZIndexBehavior.Sibling,Parent=resolveParent()})
@@ -80,6 +82,7 @@ function Engine:Destroy()
     self.Gui=nil
     self.Toasts=nil
     self.Config=nil
+    self.Icons=nil
     self.Theme=nil
 end
 

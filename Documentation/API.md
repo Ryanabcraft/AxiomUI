@@ -22,6 +22,10 @@ Creates a toast. Options: `Title`, `Description`, `Duration`, and `Color`.
 
 Removes all Axiom UI, listeners, pending tasks, and active animations.
 
+### `Axiom.Icons`
+
+`Axiom.Icons.Get(name)` resolves an official icon, friendly alias, numeric asset ID, or supported content URL. `Axiom.Icons.Exists(name)` checks official names and aliases. `Axiom.Icons.List()` returns a new alphabetically sorted list of official names. See the complete [icon catalog](ICONS.md).
+
 ## Window
 
 | Method | Description |
