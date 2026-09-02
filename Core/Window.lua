@@ -269,9 +269,9 @@ function Window.new(context,options)
     local localBlur=options.Blur==true
     local acrylic=options.Acrylic~=false
     local visualTransparency=acrylic and math.min(0.28,t.AcrylicTransparency+0.12+(localBlur and 0.04 or 0)) or 0
-    local windowClip=Utility.Create("CanvasGroup",{
+    local windowClip=Utility.Create("Frame",{
         Name="WindowClip",Size=UDim2.fromScale(1,1),BackgroundColor3=t.Background,
-        BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=true,GroupTransparency=0,
+        BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=true,
         ZIndex=Z_INDEX.Background,Parent=root
     })
     Utility.Corner(windowClip,UDim.new(0,WINDOW_RADIUS))
@@ -909,7 +909,7 @@ function Window:Hide()
     self.Hidden=true
     self:_HideTransientLayers()
     self:_CommitScale()
-    Animation.Tween(self.WindowClip,{BackgroundTransparency=1,GroupTransparency=1},TWEEN_HIDE)
+    Animation.Tween(self.WindowClip,{BackgroundTransparency=1},TWEEN_HIDE)
     Animation.Tween(self.WindowStroke,{Transparency=1},TWEEN_HIDE)
     Animation.Tween(self.UIScale,{Scale=self.Scale*0.96},TWEEN_HIDE)
     self:_VisibilityDelay(TWEEN_HIDE,function()
@@ -948,16 +948,14 @@ function Window:Show()
         self.OverlayLayer.Visible=true
         self.UIScale.Scale=self.Scale*0.96
         self.WindowClip.BackgroundTransparency=1
-        self.WindowClip.GroupTransparency=1
         self.WindowStroke.Transparency=1
         Animation.Tween(self.UIScale,{Scale=self.Scale},TWEEN_SHOW)
-        Animation.Tween(self.WindowClip,{BackgroundTransparency=self._VisualTransparency,GroupTransparency=0},TWEEN_SHOW)
+        Animation.Tween(self.WindowClip,{BackgroundTransparency=self._VisualTransparency},TWEEN_SHOW)
         Animation.Tween(self.WindowStroke,{Transparency=self._WindowStrokeTransparency},TWEEN_SHOW)
         self:_VisibilityDelay(TWEEN_SHOW,function()
             if token~=self._VisibilityTransitionId then return end
             self.UIScale.Scale=self.Scale
             self.WindowClip.BackgroundTransparency=self._VisualTransparency
-            self.WindowClip.GroupTransparency=0
             self.WindowStroke.Transparency=self._WindowStrokeTransparency
             self._WindowState.Hidden=false
             self.Hidden=false
@@ -986,7 +984,7 @@ function Window:_ClosePermanently()
     self._WindowState.VisibilityAnimating=true
     self:_HideTransientLayers()
     self:_CommitScale()
-    Animation.Tween(self.WindowClip,{BackgroundTransparency=1,GroupTransparency=1},TWEEN_HIDE)
+    Animation.Tween(self.WindowClip,{BackgroundTransparency=1},TWEEN_HIDE)
     Animation.Tween(self.WindowStroke,{Transparency=1},TWEEN_HIDE)
     Animation.Tween(self.UIScale,{Scale=self.Scale*0.96},TWEEN_HIDE)
     self:_VisibilityDelay(TWEEN_HIDE,function() self:Destroy() end)
