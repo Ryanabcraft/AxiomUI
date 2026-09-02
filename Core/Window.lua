@@ -768,7 +768,7 @@ function Window:_DoRestoreFromMinimize()
     self.Minimized=false
 
     local targetSize=self._WindowState.PreviousSize or self.OriginalSize
-    local targetPos=offsetPosition(self.Root.Position,0,self._WindowState.MinimizeDeltaY or 0)
+    local targetPos=self._WindowState.PreviousPosition or offsetPosition(self.Root.Position,0,self._WindowState.MinimizeDeltaY or 0)
     if self._WindowState.PreMinimizeMaximized then
         self._WindowState.Maximized=true
         self.Maximized=true
