@@ -3,528 +3,274 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>AXIOM UI ENGINE — Desktop-grade interface framework for Roblox Luau</title>
-<meta name="description" content="Axiom é o framework Rayfield-class para Roblox. Acrylic, motion-first, sidebar workspace, temas semânticos e estado reativo. Feito para scripters que exigem nível WindUI."/>
-<meta property="og:title" content="AXIOM UI ENGINE — Desktop-grade UI for Roblox"/>
-<meta property="og:description" content="Rayfield-class ergonomics × WindUI polish × Axiom design system. Acrylic, reactive state, profiles."/>
-<meta property="og:type" content="website"/>
+<title>AXIOM UI — A UI para Scripts Roblox | Rayfield & WindUI alternativa</title>
+<meta name="description" content="A UI definitiva para scripts Roblox. 1 linha loadstring, acrylic desktop, sidebar inspector. Substituta direta de Rayfield e WindUI — mais leve, mais bonita."/>
+<meta property="og:title" content="AXIOM UI — Para Scripts Roblox"/>
+<meta property="og:description" content="1 linha loadstring. Acrylic, reativa, 49KB. Feita para scripters."/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
-<script>
-tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','system-ui','sans-serif'],mono:['JetBrains Mono','monospace']},colors:{axiom:{bg:'#07080E',surface:'#0D0F18',surfaceAlt:'#161825',surfaceHover:'#202233',stroke:'#3D4058',text:'#F1F3FF',muted:'#8F95AE',primary:'#8B37FF',secondary:'#1F82FF'}}}}}
-</script>
+<script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','system-ui'],mono:['JetBrains Mono','monospace']},colors:{axiom:{bg:'#07080E',surface:'#0D0F18',surfaceAlt:'#161825',stroke:'#3D4058',text:'#F1F3FF',muted:'#8F95AE',primary:'#8B37FF',secondary:'#1F82FF'}}}}}</script>
 <style>
-*{scroll-behavior:smooth}
-body{background:#07080E;color:#F1F3FF}
-::selection{background:#8B37FF;color:white}
-.glass{backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4)}
-.mesh{position:absolute;inset:0;opacity:1;background:
- radial-gradient(700px 400px at 20% 10%, rgba(139,55,255,0.18), transparent 60%),
- radial-gradient(800px 500px at 85% 15%, rgba(31,130,255,0.16), transparent 60%),
- radial-gradient(600px 600px at 50% 90%, rgba(139,55,255,0.08), transparent 70%);
- pointer-events:none}
-.grid-lines{position:absolute;inset:0;background-image:
- linear-gradient(rgba(61,64,88,0.08) 1px, transparent 1px),
- linear-gradient(90deg, rgba(61,64,88,0.08) 1px, transparent 1px);
- background-size:40px 40px; mask-image: radial-gradient(ellipse 80% 70% at 50% 20%, black 40%, transparent 85%);
- pointer-events:none}
-.card-hover{transition:all .22s cubic-bezier(.16,1,.3,1)}
-.card-hover:hover{transform:translateY(-3px);border-color:rgba(139,55,255,.35);box-shadow:0 12px 40px rgba(0,0,0,.5), 0 0 0 1px rgba(139,55,255,.12)}
-.shine{position:relative;overflow:hidden}
-.shine::after{content:'';position:absolute;inset:0;background:linear-gradient(100deg, transparent 38%, rgba(255,255,255,.06) 50%, transparent 62%);transform:translateX(-100%);transition:transform .8s}
-.shine:hover::after{transform:translateX(100%)}
-.code-tab[data-active="true"]{background:#8B37FF;color:white;border-color:#8B37FF}
-.window-mock{box-shadow:0 32px 80px rgba(0,0,0,.7), 0 0 0 1px rgba(61,64,88,.3), inset 0 1px 0 rgba(255,255,255,.06)}
-.toggle-dot{transition:all .22s cubic-bezier(.34,1.56,.64,1)}
-.reveal{opacity:0;transform:translateY(16px);transition:all .6s cubic-bezier(.16,1,.3,1)}
-.reveal.in{opacity:1;transform:none}
+*{scroll-behavior:smooth}body{background:#07080E;color:#F1F3FF}::selection{background:#8B37FF;color:#fff}.glass{backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4)}
+.mesh{position:absolute;inset:0;opacity:1;background:radial-gradient(700px 400px at 20% 10%, rgba(139,55,255,0.18), transparent 60%),radial-gradient(800px 500px at 85% 15%, rgba(31,130,255,0.16), transparent 60%),radial-gradient(600px 600px at 50% 90%, rgba(139,55,255,0.08), transparent 70%);pointer-events:none}
+.grid-lines{position:absolute;inset:0;background-image:linear-gradient(rgba(61,64,88,0.08) 1px, transparent 1px),linear-gradient(90deg, rgba(61,64,88,0.08) 1px, transparent 1px);background-size:40px 40px;mask-image:radial-gradient(ellipse 80% 70% at 50% 20%, black 40%, transparent 85%);pointer-events:none}
+.card-hover{transition:all .22s cubic-bezier(.16,1,.3,1)}.card-hover:hover{transform:translateY(-3px);border-color:rgba(139,55,255,.35);box-shadow:0 12px 40px rgba(0,0,0,.5),0 0 0 1px rgba(139,55,255,.12)}
+.window-mock{box-shadow:0 32px 80px rgba(0,0,0,.7),0 0 0 1px rgba(61,64,88,.3),inset 0 1px 0 rgba(255,255,255,.06)}
+.reveal{opacity:0;transform:translateY(16px);transition:all .6s cubic-bezier(.16,1,.3,1)}.reveal.in{opacity:1;transform:none}
 </style>
 </head>
 <body class="antialiased overflow-x-hidden">
-<!-- NAV -->
 <nav class="sticky top-0 z-50 border-b border-white/[0.06] glass bg-[#07080E]/70">
   <div class="max-w-[1160px] mx-auto px-6 h-[64px] flex items-center justify-between">
     <div class="flex items-center gap-3">
-      <div class="w-8 h-8 rounded-full bg-gradient-to-br from-[#8B37FF] to-[#1F82FF] flex items-center justify-center font-black text-[11px] tracking-widest">◆</div>
+      <div class="w-8 h-8 rounded-full bg-gradient-to-br from-[#8B37FF] to-[#1F82FF] grid place-items-center font-black text-[11px]">◆</div>
       <span class="font-black tracking-[0.18em] text-[13px]">AXIOM</span>
-      <span class="hidden sm:inline text-[10px] tracking-[0.14em] text-white/40 font-semibold border border-white/10 rounded-full px-2.5 py-1 ml-1">UI ENGINE v1.0</span>
+      <span class="hidden sm:inline text-[10px] tracking-[0.14em] text-white/40 font-semibold border border-white/10 rounded-full px-2.5 py-1 ml-1">PARA SCRIPTS v1.0</span>
     </div>
     <div class="hidden md:flex items-center gap-7 text-[13px] font-medium text-white/60">
       <a href="#features" class="hover:text-white transition">Features</a>
       <a href="#components" class="hover:text-white transition">Components</a>
-      <a href="#install" class="hover:text-white transition">Install</a>
+      <a href="#install" class="hover:text-white transition">Como usar</a>
       <a href="https://github.com/Ryanabcraft/AxiomUI" class="hover:text-white transition">GitHub</a>
     </div>
     <div class="flex items-center gap-3">
-      <a href="https://github.com/Ryanabcraft/AxiomUI" class="hidden sm:inline-flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-full border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] transition"><span>★</span> Star on GitHub</a>
-      <a href="#install" class="inline-flex items-center gap-2 text-xs font-bold px-5 py-2.5 rounded-full bg-[#8B37FF] hover:bg-[#7C2FE6] transition text-white shadow-[0_8px_24px_rgba(139,55,255,.35)]">Get Started →</a>
+      <a href="https://github.com/Ryanabcraft/AxiomUI" class="hidden sm:inline-flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-full border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] transition"><span>★</span> Star</a>
+      <a href="#install" class="inline-flex items-center gap-2 text-xs font-bold px-5 py-2.5 rounded-full bg-[#8B37FF] hover:bg-[#7C2FE6] transition text-white shadow-[0_8px_24px_rgba(139,55,255,.35)]">Copiar loadstring →</a>
     </div>
   </div>
 </nav>
 
-<!-- HERO -->
 <section class="relative overflow-hidden">
-  <div class="mesh"></div>
-  <div class="grid-lines"></div>
-  <div class="relative max-w-[1160px] mx-auto px-6 pt-14 pb-10 md:pt-20 md:pb-16">
+  <div class="mesh"></div><div class="grid-lines"></div>
+  <div class="relative max-w-[1160px] mx-auto px-6 pt-12 pb-10 md:pt-16 md:pb-14">
     <div class="grid lg:grid-cols-[1.05fr_0.95fr] gap-10 items-center">
-      <!-- LEFT -->
       <div>
-        <div class="inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.14em] text-white/60 border border-white/10 rounded-full px-3 py-1.5 bg-white/[0.03] backdrop-blur">
+        <div class="inline-flex flex-wrap items-center gap-2 text-[11px] font-bold tracking-[0.14em] text-white/60 border border-white/10 rounded-full px-3 py-1.5 bg-white/[0.03] backdrop-blur">
           <span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.6)]"></span>
-          RAYFIELD-CLASS • WINDUI POLISH • DESKTOP SOUL
+          PARA SCRIPTS • 1 LINHA LOADSTRING • RAYFIELD / WINDUI ALTERNATIVA
         </div>
-        <h1 class="mt-6 font-black tracking-[-0.03em] leading-[0.9] text-[38px] sm:text-[52px] lg:text-[58px]">
-          A interface<br/>
-          <span class="bg-gradient-to-r from-[#8B37FF] via-[#7A5CFF] to-[#1F82FF] bg-clip-text text-transparent">desktop-grade</span><br/>
-          para Roblox.
+        <h1 class="mt-6 font-black tracking-[-0.03em] leading-[0.9] text-[36px] sm:text-[50px] lg:text-[54px]">
+          A UI que seu<br/>
+          <span class="bg-gradient-to-r from-[#8B37FF] via-[#7A5CFF] to-[#1F82FF] bg-clip-text text-transparent">script merece.</span>
         </h1>
         <p class="mt-5 text-[15px] leading-7 text-white/60 max-w-[520px]">
-          Axiom é o framework motion-first para scripters que não aceitam menu genérico. Sidebar workspace, acrylic, estado reativo e temas semânticos — o mesmo nível de <b class="text-white/90">Rayfield</b> e <b class="text-white/90">WindUI</b>, com alma de produto desktop.
+          Não é para Studio. É para <b class="text-white">script</b> — igual <b class="text-white">Rayfield</b> e <b class="text-white">WindUI</b>. Uma linha <code class="px-1.5 py-0.5 rounded bg-white/10 text-white/90 text-xs">loadstring(game:HttpGet(...))()</code> e sua interface acrylic aparece. Mais leve (49KB), sidebar + inspector, estado reativo.
         </p>
-        <div class="mt-7 flex flex-wrap gap-3">
-          <a href="#install" class="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-white text-[#07080E] font-bold text-sm hover:bg-white/90 transition">Start building — 30s <span class="opacity-60">→</span></a>
-          <a href="https://github.com/Ryanabcraft/AxiomUI" class="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full border border-white/10 bg-white/[0.04] font-semibold text-sm hover:bg-white/[0.08] transition">View on GitHub</a>
-          <span class="inline-flex items-center gap-2 text-xs text-white/40 px-3">MIT • Rojo • Luau strict</span>
+        <div class="mt-6 rounded-2xl border border-[#8B37FF]/20 bg-[#8B37FF]/10 p-4 flex items-center justify-between gap-4">
+          <code class="text-xs font-mono text-white/80 break-all">loadstring(game:HttpGet("https://raw.githubusercontent.com/Ryanabcraft/AxiomUI/main/dist/Axiom.lua"))()</code>
+          <button onclick="navigator.clipboard.writeText('loadstring(game:HttpGet(&quot;https://raw.githubusercontent.com/Ryanabcraft/AxiomUI/main/dist/Axiom.lua&quot;))()');this.innerText='Copiado!';setTimeout(()=>this.innerText='Copiar',1200)" class="shrink-0 text-xs font-bold px-4 py-2 rounded-full bg-white text-black">Copiar</button>
         </div>
-        <!-- quick stats -->
-        <div class="mt-8 grid grid-cols-3 gap-4 max-w-[460px]">
-          <div class="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
-            <div class="text-xl font-black">8</div><div class="text-[11px] tracking-widest text-white/40 font-semibold">CONTROLS</div>
-          </div>
-          <div class="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
-            <div class="text-xl font-black">49KB</div><div class="text-[11px] tracking-widest text-white/40 font-semibold">BUNDLE</div>
-          </div>
-          <div class="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
-            <div class="text-xl font-black">340ms</div><div class="text-[11px] tracking-widest text-white/40 font-semibold">MOTION</div>
-          </div>
+        <div class="mt-4 flex flex-wrap gap-3">
+          <a href="#install" class="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-white text-[#07080E] font-bold text-sm">Ver exemplo completo →</a>
+          <a href="https://github.com/Ryanabcraft/AxiomUI" class="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full border border-white/10 bg-white/[0.04] font-semibold text-sm">GitHub</a>
+          <span class="inline-flex items-center gap-2 text-xs text-white/30 px-2">MIT • 49KB • Executor ready</span>
+        </div>
+        <div class="mt-7 grid grid-cols-3 gap-3 max-w-[460px]">
+          <div class="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 text-center"><div class="text-xl font-black">1</div><div class="text-[11px] tracking-widest text-white/40 font-bold">LINHA</div></div>
+          <div class="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 text-center"><div class="text-xl font-black">49KB</div><div class="text-[11px] tracking-widest text-white/40 font-bold">BUNDLE</div></div>
+          <div class="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 text-center"><div class="text-xl font-black">8</div><div class="text-[11px] tracking-widest text-white/40 font-bold">CONTROLS</div></div>
         </div>
       </div>
 
-      <!-- RIGHT: WINDOW MOCK -->
       <div class="relative lg:pl-4">
         <div class="window-mock relative rounded-[18px] overflow-hidden bg-[#0B0D14] border border-white/[0.08]">
-          <!-- titlebar -->
           <div class="h-[66px] bg-[#13151F]/80 backdrop-blur flex items-center justify-between px-5 border-b border-white/[0.06]">
             <div class="flex items-center gap-3">
-              <div class="w-[34px] h-[34px] rounded-full bg-gradient-to-br from-[#8B37FF] to-[#24273B] border border-white/10 flex items-center justify-center text-[10px] font-black">◆</div>
-              <div>
-                <div class="text-[13px] font-extrabold tracking-wide leading-none">AXIOM</div>
-                <div class="text-[9px] tracking-[0.16em] text-white/40 font-bold">UI ENGINE • v1.0</div>
-              </div>
+              <div class="w-[34px] h-[34px] rounded-full bg-gradient-to-br from-[#8B37FF] to-[#24273B] border border-white/10 grid place-items-center text-[10px] font-black">◆</div>
+              <div><div class="text-[13px] font-extrabold leading-none">AXIOM</div><div class="text-[9px] tracking-[0.16em] text-white/40 font-bold">PARA SCRIPTS • v1.0</div></div>
             </div>
-            <div class="flex items-center gap-1.5">
-              <div class="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/10 grid place-items-center text-white/60 text-xs">—</div>
-              <div class="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/10 grid place-items-center text-white/60 text-xs">□</div>
-              <div class="w-8 h-8 rounded-lg bg-[#BB5BFF]/15 border border-[#BB5BFF]/20 grid place-items-center text-[#BB5BFF] text-xs">×</div>
-            </div>
+            <div class="flex gap-1.5"><div class="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/10 grid place-items-center text-xs text-white/60">—</div><div class="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/10 grid place-items-center text-xs text-white/60">□</div><div class="w-8 h-8 rounded-lg bg-[#BB5BFF]/15 border border-[#BB5BFF]/20 grid place-items-center text-xs text-[#BB5BFF]">×</div></div>
           </div>
           <div class="flex">
-            <!-- sidebar -->
             <div class="w-[88px] bg-[#0F111A] border-r border-white/[0.06] p-3 flex flex-col items-center gap-2 min-h-[340px]">
               <div class="w-[56px] h-[52px] rounded-[10px] bg-gradient-to-br from-[#9730FF] to-[#5223CC] grid place-items-center text-white border border-white/10 shadow-[0_8px_20px_rgba(139,55,255,.35)]">⌂</div>
               <div class="w-[56px] h-[52px] rounded-[10px] bg-white/[0.03] border border-white/[0.06] grid place-items-center text-white/30">⚙</div>
               <div class="w-[56px] h-[52px] rounded-[10px] bg-white/[0.03] border border-white/[0.06] grid place-items-center text-white/30">▭</div>
-              <div class="mt-auto w-14 h-14 rounded-xl bg-white/[0.06] border border-white/10 grid place-items-center">
-                <div class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-[#8B37FF] to-[#1F82FF] shadow-[0_0_12px_rgba(139,55,255,.6)]"></div>
-              </div>
+              <div class="mt-auto w-14 h-14 rounded-xl bg-white/[0.06] border border-white/10 grid place-items-center"><div class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-[#8B37FF] to-[#1F82FF]"></div></div>
             </div>
-            <!-- content -->
             <div class="flex-1 p-4 bg-[#07080E] space-y-3">
               <div class="rounded-xl bg-[#161825]/70 border border-white/[0.06] p-3">
-                <div class="text-[11px] font-bold tracking-[0.12em] text-white/60">CONTROL SURFACE</div>
+                <div class="text-[11px] font-bold tracking-[0.12em] text-white/60">MAIN • SEU SCRIPT</div>
                 <div class="mt-3 space-y-2.5">
-                  <!-- toggle row -->
-                  <div class="h-[54px] rounded-[11px] bg-[#161825] border border-white/[0.06] flex items-center justify-between px-4">
-                    <span class="text-[13px] font-medium">Enable Feature</span>
-                    <div id="mockToggle" class="w-[42px] h-[24px] rounded-full bg-[#8B37FF] relative cursor-pointer" onclick="this.classList.toggle('!bg-[#202233]'); this.firstElementChild.classList.toggle('!left-[12px]'); this.firstElementChild.classList.toggle('left-[30px]')">
-                      <div class="toggle-dot absolute top-1/2 -translate-y-1/2 left-[30px] w-4 h-4 rounded-full bg-white shadow"></div>
-                    </div>
-                  </div>
-                  <!-- slider -->
-                  <div class="h-[68px] rounded-[11px] bg-[#161825] border border-white/[0.06] p-4">
-                    <div class="flex justify-between text-xs"><span class="font-medium">Performance</span><span class="text-white/40 font-mono">72%</span></div>
-                    <div class="mt-3 h-[5px] rounded-full bg-[#202233] overflow-hidden"><div class="h-full w-[72%] bg-[#8B37FF] rounded-full"></div></div>
-                  </div>
-                  <!-- dropdown -->
-                  <div class="h-[54px] rounded-[11px] bg-[#161825] border border-white/[0.06] flex items-center justify-between px-4">
-                    <span class="text-[13px] font-medium">Processing mode</span>
-                    <span class="text-xs bg-[#0B0D14] border border-white/10 rounded-lg px-3 py-2 text-white/60">Balanced ▾</span>
-                  </div>
+                  <div class="h-[54px] rounded-[11px] bg-[#161825] border border-white/[0.06] flex items-center justify-between px-4"><span class="text-[13px] font-medium">Auto Farm</span><div class="w-[42px] h-[24px] rounded-full bg-[#8B37FF] relative"><div class="absolute right-1 top-1 w-4 h-4 rounded-full bg-white"></div></div></div>
+                  <div class="h-[68px] rounded-[11px] bg-[#161825] border border-white/[0.06] p-4"><div class="flex justify-between text-xs"><span class="font-medium">Speed</span><span class="text-white/40 font-mono">72%</span></div><div class="mt-3 h-[5px] rounded-full bg-[#202233] overflow-hidden"><div class="h-full w-[72%] bg-[#8B37FF] rounded-full"></div></div></div>
+                  <div class="h-[54px] rounded-[11px] bg-[#161825] border border-white/[0.06] flex items-center justify-between px-4"><span class="text-[13px] font-medium">Mode</span><span class="text-xs bg-[#0B0D14] border border-white/10 rounded-lg px-3 py-2 text-white/60">Legit ▾</span></div>
                 </div>
               </div>
               <div class="grid grid-cols-2 gap-3">
-                <div class="rounded-xl bg-[#161825]/60 border border-white/[0.06] p-3 h-[88px]">
-                  <div class="text-[10px] font-bold tracking-widest text-white/40">APPEARANCE</div>
-                  <div class="mt-3 flex gap-2">
-                    <div class="w-8 h-8 rounded-lg bg-[#8B37FF] border border-white/20"></div>
-                    <div class="w-8 h-8 rounded-lg bg-[#1F82FF] border border-white/10"></div>
-                    <div class="w-8 h-8 rounded-lg bg-[#35D399] border border-white/10"></div>
-                  </div>
-                </div>
-                <div class="rounded-xl bg-gradient-to-br from-[#8B37FF] to-[#1F82FF] p-3 flex flex-col justify-between text-white">
-                  <div class="text-xs font-bold opacity-90">Ready to ship</div>
-                  <div class="text-[11px] opacity-70">Copy • Paste • Customize</div>
-                  <button class="mt-2 bg-white text-[#0B0D14] text-xs font-bold py-2 rounded-full">Run Action</button>
-                </div>
+                <div class="rounded-xl bg-[#161825]/60 border border-white/[0.06] p-3 h-[88px]"><div class="text-[10px] font-bold tracking-widest text-white/40">VISUAL</div><div class="mt-3 flex gap-2"><div class="w-8 h-8 rounded-lg bg-[#8B37FF] border border-white/20"></div><div class="w-8 h-8 rounded-lg bg-[#1F82FF]"></div><div class="w-8 h-8 rounded-lg bg-[#35D399]"></div></div></div>
+                <div class="rounded-xl bg-gradient-to-br from-[#8B37FF] to-[#1F82FF] p-3 flex flex-col justify-between text-white"><div class="text-xs font-bold">Drop-in</div><div class="text-[11px] opacity-70">Substitui Rayfield</div><button class="mt-2 bg-white text-[#0B0D14] text-xs font-bold py-2 rounded-full">Ativar</button></div>
               </div>
             </div>
           </div>
         </div>
-        <!-- floating toast -->
-        <div class="absolute -bottom-4 -right-2 sm:right-2 bg-[#13151F] border border-white/10 rounded-xl p-3 flex gap-3 items-start shadow-[0_16px_40px_rgba(0,0,0,.5)] w-[300px]">
+        <div class="absolute -bottom-3 -right-2 sm:right-2 bg-[#13151F] border border-white/10 rounded-xl p-3 flex gap-3 items-start shadow-[0_16px_40px_rgba(0,0,0,.5)] w-[300px]">
           <div class="w-1 self-stretch rounded-full bg-[#8B37FF]"></div>
-          <div>
-            <div class="text-xs font-bold">Welcome to Axiom</div>
-            <div class="text-xs text-white/50 leading-5">Your premium workspace is ready.</div>
-          </div>
-          <span class="ml-auto text-white/30 text-xs">✕</span>
+          <div><div class="text-xs font-bold">Script carregado!</div><div class="text-xs text-white/50 leading-5">Axiom pronta para uso.</div></div><span class="ml-auto text-white/30 text-xs">✕</span>
         </div>
       </div>
     </div>
-
-    <!-- TRUST BAR -->
-    <div class="mt-10 md:mt-16 rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur px-6 py-5 flex flex-wrap gap-6 items-center justify-between">
-      <div class="text-xs tracking-[0.14em] font-bold text-white/30">BUILT FOR SCRIPT DEVS WHO SHIP</div>
+    <div class="mt-10 md:mt-14 rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur px-6 py-5 flex flex-wrap gap-6 items-center justify-between">
+      <div class="text-xs tracking-[0.14em] font-bold text-white/30">FEITA PARA SCRIPTS • NÃO PARA STUDIO</div>
       <div class="flex flex-wrap gap-3 text-xs font-semibold text-white/50">
-        <span class="px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06]">◆ Rayfield-level DX</span>
-        <span class="px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06]">◆ WindUI-level polish</span>
-        <span class="px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06]">◆ 100% Luau • Rojo • Wally</span>
+        <span class="px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06]">◆ 1 linha loadstring</span>
+        <span class="px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06]">◆ Rayfield API compatível</span>
+        <span class="px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06]">◆ Qualquer executor</span>
       </div>
     </div>
   </div>
 </section>
 
-<!-- FEATURES -->
 <section id="features" class="max-w-[1160px] mx-auto px-6 py-14">
   <div class="flex flex-wrap items-end justify-between gap-4">
-    <div>
-      <div class="text-[11px] tracking-[0.16em] font-bold text-[#8B37FF]">FEATURES</div>
-      <h2 class="mt-2 text-[30px] md:text-[36px] font-black tracking-[-0.02em] leading-none">Desktop product,<br/>não script menu.</h2>
-    </div>
-    <p class="max-w-[420px] text-sm leading-6 text-white/50">Cada pixel pensado como editor profissional: hierarquia, acrylic, motion quintic e tokens semânticos que propagam em tempo real.</p>
+    <div><div class="text-[11px] tracking-[0.16em] font-bold text-[#8B37FF]">POR QUE AXIOM?</div><h2 class="mt-2 text-[30px] md:text-[36px] font-black tracking-[-0.02em] leading-none">Rayfield e WindUI,<br/>só que melhor.</h2></div>
+    <p class="max-w-[420px] text-sm leading-6 text-white/50">Acabamento desktop, motion impecável e 49KB. A mesma ergonomia que você já conhece, com layout superior.</p>
   </div>
-
   <div class="mt-8 grid md:grid-cols-3 gap-4">
-    <div class="card-hover reveal rounded-[16px] border border-white/[0.06] bg-[#0D0F18] p-6">
-      <div class="w-9 h-9 rounded-xl bg-[#8B37FF]/15 border border-[#8B37FF]/20 grid place-items-center text-[#8B37FF]">◈</div>
-      <h3 class="mt-4 font-bold">Window Manager</h3>
-      <p class="mt-2 text-sm leading-6 text-white/50">Draggable, resizable, minimize/maximize/close com animação, blur em <code class="text-white/70">Lighting.AxiomBlur</code> e escala 0.965→1.</p>
-      <div class="mt-4 text-xs font-mono text-white/30">Window.new • Minimize() • Maximize()</div>
-    </div>
-    <div class="card-hover reveal rounded-[16px] border border-white/[0.06] bg-[#0D0F18] p-6">
-      <div class="w-9 h-9 rounded-xl bg-[#1F82FF]/15 border border-[#1F82FF]/20 grid place-items-center text-[#1F82FF]">⬡</div>
-      <h3 class="mt-4 font-bold">Sidebar Workspace</h3>
-      <p class="mt-2 text-sm leading-6 text-white/50">88px icon rail, 66px chrome, tabs com tooltip, <code class="text-white/70">AddColumnGroup</code> 62/38 e panels com mesma API.</p>
-      <div class="mt-4 text-xs font-mono text-white/30">AddTab • AddPanel • AddColumnGroup</div>
-    </div>
-    <div class="card-hover reveal rounded-[16px] border border-white/[0.06] bg-[#0D0F18] p-6">
-      <div class="w-9 h-9 rounded-xl bg-[#35D399]/15 border border-[#35D399]/20 grid place-items-center text-[#35D399]">◎</div>
-      <h3 class="mt-4 font-bold">Reactive State</h3>
-      <p class="mt-2 text-sm leading-6 text-white/50">State + Signal. Todo controle retorna handle com <code class="text-white/70">Get/Set</code> e evento <code class="text-white/70">Changed</code>. Callback protegido.</p>
-      <div class="mt-4 text-xs font-mono text-white/30">State.new • Changed:Connect</div>
-    </div>
-    <div class="card-hover reveal rounded-[16px] border border-white/[0.06] bg-[#0D0F18] p-6">
-      <div class="w-9 h-9 rounded-xl bg-[#FFBE4C]/15 border border-[#FFBE4C]/20 grid place-items-center text-[#FFBE4C]">⬢</div>
-      <h3 class="mt-4 font-bold">Theme Engine</h3>
-      <p class="mt-2 text-sm leading-6 text-white/50">Tokens semânticos + <code class="text-white/70">Theme:Bind</code> live. Dark, Light e <code class="text-white/70">CreateTheme(overrides)</code>.</p>
-      <div class="mt-4 flex gap-2">
-        <span class="w-6 h-6 rounded-full bg-[#07080E] border border-white/10"></span>
-        <span class="w-6 h-6 rounded-full bg-[#8B37FF] border border-white/10"></span>
-        <span class="w-6 h-6 rounded-full bg-[#EEF1F9] border border-black/10"></span>
-      </div>
-    </div>
-    <div class="card-hover reveal rounded-[16px] border border-white/[0.06] bg-[#0D0F18] p-6">
-      <div class="w-9 h-9 rounded-xl bg-[#FF5B79]/15 border border-[#FF5B79]/20 grid place-items-center text-[#FF5B79]">⬣</div>
-      <h3 class="mt-4 font-bold">Motion-first</h3>
-      <p class="mt-2 text-sm leading-6 text-white/50">Tween quint 120–340ms, ripple, toast queue e micro-interações em hover/active.</p>
-      <div class="mt-4 text-xs font-mono text-white/30">Animation.Tween • Ripple • Notify</div>
-    </div>
-    <div class="card-hover reveal rounded-[16px] border border-white/[0.06] bg-[#0D0F18] p-6">
-      <div class="w-9 h-9 rounded-xl bg-white/10 border border-white/10 grid place-items-center">⬔</div>
-      <h3 class="mt-4 font-bold">Profiles & Config</h3>
-      <p class="mt-2 text-sm leading-6 text-white/50">Register → Save/Load → AutoSave debounced (0.35s). Serializa Color3 e KeyCode para JSON.</p>
-      <div class="mt-4 text-xs font-mono text-white/30">Config:Register • EnableAutoSave</div>
-    </div>
+    <div class="card-hover reveal rounded-[16px] border border-white/[0.06] bg-[#0D0F18] p-6"><div class="w-9 h-9 rounded-xl bg-[#8B37FF]/15 border border-[#8B37FF]/20 grid place-items-center text-[#8B37FF]">⚡</div><h3 class="mt-4 font-bold">1 linha para usar</h3><p class="mt-2 text-sm leading-6 text-white/50"><code class="text-white/70">loadstring(game:HttpGet(...))()</code> direto no executor. Sem Studio, sem fricção.</p></div>
+    <div class="card-hover reveal rounded-[16px] border border-white/[0.06] bg-[#0D0F18] p-6"><div class="w-9 h-9 rounded-xl bg-[#1F82FF]/15 border border-[#1F82FF]/20 grid place-items-center text-[#1F82FF]">⬢</div><h3 class="mt-4 font-bold">Sidebar + Inspector</h3><p class="mt-2 text-sm leading-6 text-white/50">88px rail + colunas 62/38. Seu hub parece app desktop, não menu genérico.</p></div>
+    <div class="card-hover reveal rounded-[16px] border border-white/[0.06] bg-[#0D0F18] p-6"><div class="w-9 h-9 rounded-xl bg-[#35D399]/15 border border-[#35D399]/20 grid place-items-center text-[#35D399]">◎</div><h3 class="mt-4 font-bold">Reativo de verdade</h3><p class="mt-2 text-sm leading-6 text-white/50">Handles com <code class="text-white/70">Get/Set</code> e <code class="text-white/70">Changed</code>. Troca tema live.</p></div>
+    <div class="card-hover reveal rounded-[16px] border border-white/[0.06] bg-[#0D0F18] p-6"><div class="w-9 h-9 rounded-xl bg-[#FFBE4C]/15 border border-[#FFBE4C]/20 grid place-items-center text-[#FFBE4C]">⬣</div><h3 class="mt-4 font-bold">Mais leve</h3><p class="mt-2 text-sm leading-6 text-white/50">49KB vs ~80KB Rayfield vs ~120KB WindUI. Carrega instantâneo.</p></div>
+    <div class="card-hover reveal rounded-[16px] border border-white/[0.06] bg-[#0D0F18] p-6"><div class="w-9 h-9 rounded-xl bg-[#FF5B79]/15 border border-[#FF5B79]/20 grid place-items-center text-[#FF5B79]">✦</div><h3 class="mt-4 font-bold">Motion-first</h3><p class="mt-2 text-sm leading-6 text-white/50">Quint 120–340ms, ripple, toast. Cada interação tem feedback.</p></div>
+    <div class="card-hover reveal rounded-[16px] border border-white/[0.06] bg-[#0D0F18] p-6"><div class="w-9 h-9 rounded-xl bg-white/10 border border-white/10 grid place-items-center">⬔</div><h3 class="mt-4 font-bold">Salva config</h3><p class="mt-2 text-sm leading-6 text-white/50">AutoSave em JSON se executor tiver <code class="text-white/70">writefile</code>. Igual Rayfield.</p></div>
   </div>
 </section>
 
-<!-- COMPONENTS SHOWCASE -->
 <section id="components" class="border-y border-white/[0.06] bg-[#0B0D14]">
   <div class="max-w-[1160px] mx-auto px-6 py-14">
     <div class="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <div class="text-[11px] tracking-[0.16em] font-bold text-white/40">COMPONENTS</div>
-        <h2 class="mt-2 text-[28px] font-black tracking-[-0.02em]">8 controles. Uma API.</h2>
-        <p class="mt-2 text-sm text-white/50">Todo <code class="text-white/70">Add*</code> retorna handle com <code class="text-white/70">Get/Set/SetVisible/Destroy</code>.</p>
-      </div>
-      <div class="flex gap-2 text-xs">
-        <button data-c="all" class="code-tab px-4 py-2 rounded-full border border-white/10 bg-[#8B37FF] text-white font-bold">All</button>
-        <button data-c="form" class="code-tab px-4 py-2 rounded-full border border-white/10 bg-white/[0.04] font-semibold">Form</button>
-        <button data-c="pickers" class="code-tab px-4 py-2 rounded-full border border-white/10 bg-white/[0.04] font-semibold">Pickers</button>
-      </div>
+      <div><div class="text-[11px] tracking-[0.16em] font-bold text-white/40">API FAMILIAR</div><h2 class="mt-2 text-[28px] font-black tracking-[-0.02em]">Se usa Rayfield, já sabe usar.</h2><p class="mt-2 text-sm text-white/50">Mesmos nomes, mais poder.</p></div>
     </div>
-
     <div class="mt-6 grid lg:grid-cols-[1.15fr_0.85fr] gap-6">
-      <!-- code -->
       <div class="rounded-2xl overflow-hidden border border-white/[0.06] bg-[#0D0F18]">
         <div class="h-10 flex items-center justify-between px-4 border-b border-white/[0.06] bg-white/[0.02]">
           <div class="flex gap-1.5"><span class="w-3 h-3 rounded-full bg-[#FF5B79]"></span><span class="w-3 h-3 rounded-full bg-[#FFBE4C]"></span><span class="w-3 h-3 rounded-full bg-[#35D399]"></span></div>
-          <span class="text-xs font-mono text-white/30">Showcase.client.lua</span>
-          <button onclick="navigator.clipboard.writeText(document.getElementById('codeBlock').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1200)" class="text-xs font-semibold px-3 py-1 rounded-full bg-white text-black">Copy</button>
+          <span class="text-xs font-mono text-white/30">seu_script.lua</span>
+          <button onclick="navigator.clipboard.writeText(document.getElementById('codeBlock').innerText);this.innerText='Copiado!';setTimeout(()=>this.innerText='Copiar',1200)" class="text-xs font-bold px-3 py-1 rounded-full bg-white text-black">Copiar</button>
         </div>
-<pre id="codeBlock" class="p-5 text-[12.5px] leading-6 font-mono overflow-x-auto text-white/80"><span class="text-white/30">-- Axiom showcases como WindUI, mas com workspace</span>
-<span class="text-[#8B37FF]">local</span> Axiom = <span class="text-[#1F82FF]">require</span>(game.ReplicatedStorage.Axiom)
-<span class="text-[#8B37FF]">local</span> Window = Axiom:<span class="text-[#1F82FF]">CreateWindow</span>({
-  Title=<span class="text-[#35D399]">"Axiom Control Center"</span>, Theme=<span class="text-[#35D399]">"Dark"</span>, Acrylic=<span class="text-[#FFBE4C]">true</span>, Blur=<span class="text-[#FFBE4C]">true</span>
-})
-<span class="text-[#8B37FF]">local</span> Tab = Window:<span class="text-[#1F82FF]">AddTab</span>({Name=<span class="text-[#35D399]">"Dashboard"</span>, Icon=<span class="text-[#35D399]">"home"</span>})
-<span class="text-[#8B37FF]">local</span> Main, Inspector = Tab:<span class="text-[#1F82FF]">AddColumnGroup</span>({Ratio=<span class="text-[#FFBE4C]">0.62</span>})
+<pre id="codeBlock" class="p-5 text-[12.5px] leading-6 font-mono overflow-x-auto text-white/80"><span class="text-white/30">-- 1 LINHA — igual Rayfield/WindUI</span>
+<span class="text-[#8B37FF]">local</span> Axiom = <span class="text-[#1F82FF]">loadstring</span>(game:<span class="text-[#1F82FF]">HttpGet</span>(<span class="text-[#35D399]">"https://raw.githubusercontent.com/Ryanabcraft/AxiomUI/main/dist/Axiom.lua"</span>))()
 
-Main:<span class="text-[#1F82FF]">AddToggle</span>({Name=<span class="text-[#35D399]">"Enable Feature"</span>, Default=<span class="text-[#FFBE4C]">false</span>})
-Main:<span class="text-[#1F82FF]">AddSlider</span>({Name=<span class="text-[#35D399]">"Performance"</span>, Min=<span class="text-[#FFBE4C]">0</span>, Max=<span class="text-[#FFBE4C]">100</span>, Suffix=<span class="text-[#35D399]">"%"</span>})
-Main:<span class="text-[#1F82FF]">AddDropdown</span>({Name=<span class="text-[#35D399]">"Mode"</span>, Options={<span class="text-[#35D399]">"Balanced"</span>,<span class="text-[#35D399]">"Performance"</span>}})
-Main:<span class="text-[#1F82FF]">AddKeybind</span>({Name=<span class="text-[#35D399]">"Toggle UI"</span>, Default=Enum.KeyCode.RightShift})
+<span class="text-[#8B37FF]">local</span> Window = Axiom:<span class="text-[#1F82FF]">CreateWindow</span>({Title=<span class="text-[#35D399]">"Meu Hub"</span>, Theme=<span class="text-[#35D399]">"Dark"</span>, Acrylic=<span class="text-[#FFBE4C]">true</span>, Blur=<span class="text-[#FFBE4C]">true</span>})
+<span class="text-[#8B37FF]">local</span> Tab = Window:<span class="text-[#1F82FF]">AddTab</span>({Name=<span class="text-[#35D399]">"Main"</span>, Icon=<span class="text-[#35D399]">"home"</span>})
 
-Inspector:<span class="text-[#1F82FF]">AddColorPicker</span>({Name=<span class="text-[#35D399]">"Accent"</span>, Default=Color3.fromRGB(<span class="text-[#FFBE4C]">139,55,255</span>)})
-Axiom:<span class="text-[#1F82FF]">Notify</span>({Title=<span class="text-[#35D399]">"Welcome to Axiom"</span>, Description=<span class="text-[#35D399]">"Workspace ready."</span>})</pre>
+Tab:<span class="text-[#1F82FF]">AddToggle</span>({Name=<span class="text-[#35D399]">"Auto Farm"</span>, Default=<span class="text-[#FFBE4C]">false</span>, Callback=<span class="text-[#8B37FF]">function</span>(v) _G.Farm=v <span class="text-[#8B37FF]">end</span>})
+Tab:<span class="text-[#1F82FF]">AddSlider</span>({Name=<span class="text-[#35D399]">"Speed"</span>, Min=<span class="text-[#FFBE4C]">16</span>, Max=<span class="text-[#FFBE4C]">200</span>, Suffix=<span class="text-[#35D399]">"%"</span>})
+Tab:<span class="text-[#1F82FF]">AddDropdown</span>({Name=<span class="text-[#35D399]">"Mode"</span>, Options={<span class="text-[#35D399]">"Legit"</span>,<span class="text-[#35D399]">"Rage"</span>}})
+Tab:<span class="text-[#1F82FF]">AddKeybind</span>({Name=<span class="text-[#35D399]">"Toggle UI"</span>, Default=Enum.KeyCode.RightShift})
+
+Axiom:<span class="text-[#1F82FF]">Notify</span>({Title=<span class="text-[#35D399]">"Carregado!"</span>, Description=<span class="text-[#35D399]">"Axiom pronta."</span>})</pre>
       </div>
-
-      <!-- visual grid -->
       <div class="grid grid-cols-1 gap-3">
-        <div class="rounded-2xl border border-white/[0.06] bg-[#0D0F18] p-4">
-          <div class="text-[11px] font-bold tracking-[0.12em] text-white/40">LIVE PREVIEW — CONTROLS</div>
-          <div class="mt-4 space-y-2">
-            <div class="h-14 rounded-xl bg-[#161825] border border-white/[0.06] flex items-center justify-between px-4">
-              <span class="text-sm font-medium">Toggle</span>
-              <span class="w-10 h-6 rounded-full bg-[#8B37FF] relative"><span class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></span></span>
-            </div>
-            <div class="h-14 rounded-xl bg-[#161825] border border-white/[0.06] flex items-center justify-between px-4">
-              <span class="text-sm font-medium">Dropdown</span>
-              <span class="text-xs px-3 py-2 rounded-lg bg-[#0B0D14] border border-white/10 text-white/60">Balanced ▾</span>
-            </div>
-            <div class="h-16 rounded-xl bg-[#161825] border border-white/[0.06] flex items-center gap-3 px-4">
-              <span class="text-sm font-medium">Color</span>
-              <span class="ml-auto w-8 h-8 rounded-lg bg-[#8B37FF] border border-white/20"></span>
-              <span class="text-xs font-mono bg-[#0B0D14] border border-white/10 rounded-lg px-2 py-1.5">#8B37FF</span>
-            </div>
-            <div class="h-10 rounded-xl bg-white text-black grid place-items-center font-bold text-sm">◆ Button + Ripple</div>
-          </div>
-        </div>
-        <div class="rounded-2xl border border-[#8B37FF]/20 bg-gradient-to-br from-[#8B37FF]/15 to-[#1F82FF]/10 p-5">
-          <div class="text-sm font-bold">Substitui Rayfield & WindUI sem reescrever</div>
-          <p class="mt-1 text-sm leading-6 text-white/60">Mesma ergonomia, layout desktop superior e binding reativo. Migração em minutos.</p>
-          <div class="mt-3 flex gap-2 text-xs font-mono">
-            <span class="px-2.5 py-1 rounded-full bg-black/30 border border-white/10">Rayfield → Axiom</span>
-            <span class="px-2.5 py-1 rounded-full bg-black/30 border border-white/10">WindUI → Axiom</span>
-          </div>
-        </div>
+        <div class="rounded-2xl border border-white/[0.06] bg-[#0D0F18] p-4"><div class="text-[11px] font-bold tracking-[0.12em] text-white/40">CONTROLS INCLUSOS</div><div class="mt-4 space-y-2"><div class="h-12 rounded-xl bg-[#161825] border border-white/[0.06] flex items-center justify-between px-4"><span class="text-sm font-medium">Toggle, Slider, Dropdown</span><span class="text-emerald-400 text-xs">✓</span></div><div class="h-12 rounded-xl bg-[#161825] border border-white/[0.06] flex items-center justify-between px-4"><span class="text-sm font-medium">Input, Keybind, ColorPicker</span><span class="text-emerald-400 text-xs">✓</span></div><div class="h-12 rounded-xl bg-[#161825] border border-white/[0.06] flex items-center justify-between px-4"><span class="text-sm font-medium">Section, Card, Panel, ColumnGroup</span><span class="text-emerald-400 text-xs">✓</span></div></div></div>
+        <div class="rounded-2xl border border-[#8B37FF]/20 bg-gradient-to-br from-[#8B37FF]/15 to-[#1F82FF]/10 p-5"><div class="text-sm font-bold">Migração em 2 minutos</div><p class="mt-1 text-sm leading-6 text-white/60">Troque <code class="text-white">Rayfield:CreateWindow</code> por <code class="text-white">Axiom:CreateWindow</code>. O resto é igual.</p><div class="mt-3 flex gap-2 text-xs font-mono"><span class="px-2.5 py-1 rounded-full bg-black/30 border border-white/10">Rayfield → Axiom</span><span class="px-2.5 py-1 rounded-full bg-black/30 border border-white/10">WindUI → Axiom</span></div></div>
       </div>
-    </div>
-
-    <!-- component table -->
-    <div class="mt-6 overflow-x-auto rounded-2xl border border-white/[0.06]">
-      <table class="w-full text-sm">
-        <thead class="bg-white/[0.03] text-white/40 text-xs tracking-widest font-bold">
-          <tr><th class="text-left p-4">METHOD</th><th class="text-left p-4">OPTIONS</th><th class="text-left p-4">RETURNS</th></tr>
-        </thead>
-        <tbody class="divide-y divide-white/[0.04]">
-          <tr><td class="p-4 font-mono text-[#8B37FF]">AddButton</td><td class="p-4 text-white/60">Name, Callback</td><td class="p-4 text-white/40">Handle</td></tr>
-          <tr><td class="p-4 font-mono text-[#8B37FF]">AddToggle</td><td class="p-4 text-white/60">Name, Default, Callback(bool)</td><td class="p-4 text-white/40">State<bool></td></tr>
-          <tr><td class="p-4 font-mono text-[#8B37FF]">AddSlider</td><td class="p-4 text-white/60">Min, Max, Default, Increment, Suffix</td><td class="p-4 text-white/40">State<number></td></tr>
-          <tr><td class="p-4 font-mono text-[#8B37FF]">AddDropdown</td><td class="p-4 text-white/60">Options[], Default, Multi</td><td class="p-4 text-white/40">State</td></tr>
-          <tr><td class="p-4 font-mono text-[#8B37FF]">AddInput / AddKeybind / AddColorPicker</td><td class="p-4 text-white/60">Validate, Placeholder, KeyCode, Color3</td><td class="p-4 text-white/40">State</td></tr>
-        </tbody>
-      </table>
     </div>
   </div>
 </section>
 
-<!-- INSTALL -->
 <section id="install" class="max-w-[1160px] mx-auto px-6 py-14">
   <div class="text-center max-w-[720px] mx-auto">
-    <div class="inline-flex items-center gap-2 text-[11px] font-bold tracking-[0.16em] text-white/40 border border-white/10 rounded-full px-3 py-1">INSTALL • 30 SECONDS</div>
-    <h2 class="mt-4 text-[34px] font-black tracking-[-0.02em]">Três jeitos de usar.</h2>
-    <p class="mt-3 text-sm leading-6 text-white/50">Escolha seu flow. Mesmo bundle, mesma API. Recomendado: Rojo para produção, loadstring para executors.</p>
+    <div class="inline-flex items-center gap-2 text-[11px] font-bold tracking-[0.16em] text-white/40 border border-white/10 rounded-full px-3 py-1">COMO USAR • 10 SEGUNDOS</div>
+    <h2 class="mt-4 text-[34px] font-black tracking-[-0.02em]">Cole e rode.</h2>
+    <p class="mt-3 text-sm leading-6 text-white/50">Nada de Studio ou Rojo. Axiom foi feita para <b class="text-white">executors</b> — copie 1 linha e seu script já tem UI premium.</p>
   </div>
-
-  <div class="mt-8 flex justify-center gap-2">
-    <button onclick="switchInstall('rojo')" id="btn-rojo" class="install-tab px-5 py-2.5 rounded-full bg-[#8B37FF] text-white font-bold text-sm border border-[#8B37FF]">Rojo / Studio</button>
-    <button onclick="switchInstall('loadstring')" id="btn-loadstring" class="install-tab px-5 py-2.5 rounded-full bg-white/[0.04] text-white/60 font-semibold text-sm border border-white/10">Loadstring</button>
-    <button onclick="switchInstall('wally')" id="btn-wally" class="install-tab px-5 py-2.5 rounded-full bg-white/[0.04] text-white/60 font-semibold text-sm border border-white/10">Wally</button>
+  <div class="mt-8 flex justify-center gap-2 flex-wrap">
+    <button onclick="switchInstall('script')" id="btn-script" class="install-tab px-5 py-2.5 rounded-full bg-[#8B37FF] text-white font-bold text-sm border border-[#8B37FF]">🔥 Script (loadstring)</button>
+    <button onclick="switchInstall('raw')" id="btn-raw" class="install-tab px-5 py-2.5 rounded-full bg-white/[0.04] text-white/60 font-semibold text-sm border border-white/10">Arquivo .lua</button>
+    <button onclick="switchInstall('studio')" id="btn-studio" class="install-tab px-5 py-2.5 rounded-full bg-white/[0.04] text-white/60 font-semibold text-sm border border-white/10">Studio (opcional)</button>
   </div>
-
   <div class="mt-6 grid lg:grid-cols-[1.1fr_0.9fr] gap-6">
     <div class="rounded-2xl border border-white/[0.06] bg-[#0D0F18] overflow-hidden">
-      <div class="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
-        <span class="text-xs font-mono text-white/40" id="install-label">ReplicatedStorage • LocalScript</span>
-        <button onclick="copyInstall()" class="text-xs font-bold px-3 py-1.5 rounded-full bg-white text-black">Copy code</button>
-      </div>
+      <div class="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]"><span class="text-xs font-mono text-white/40" id="install-label">Seu executor • loadstring</span><button onclick="copyInstall()" class="text-xs font-bold px-3 py-1.5 rounded-full bg-white text-black">Copiar código</button></div>
       <pre id="install-code" class="p-5 text-[12.5px] leading-6 font-mono text-white/80 overflow-x-auto"></pre>
     </div>
     <div class="space-y-4">
       <div class="rounded-2xl border border-white/[0.06] bg-[#0D0F18] p-6">
-        <h3 class="font-bold flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Production checklist</h3>
+        <h3 class="font-bold flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Funciona em qualquer executor</h3>
         <ul class="mt-3 space-y-2.5 text-sm text-white/60">
-          <li class="flex gap-2"><span class="text-emerald-400">✓</span> Coloque <code class="text-white/80">Axiom</code> em <code class="text-white/80">ReplicatedStorage</code></li>
-          <li class="flex gap-2"><span class="text-emerald-400">✓</span> Use <code class="text-white/80">axiom.project.json</code> com Rojo sync</li>
-          <li class="flex gap-2"><span class="text-emerald-400">✓</span> `require` em LocalScript, não Script</li>
-          <li class="flex gap-2"><span class="text-emerald-400">✓</span> `Build → dist/Axiom.lua` hospedado raw para executors</li>
+          <li class="flex gap-2"><span class="text-emerald-400">✓</span> Synapse, Fluxus, Hydrogen, Arceus, e outros</li>
+          <li class="flex gap-2"><span class="text-emerald-400">✓</span> Precisa só de <code class="text-white/80">loadstring</code> + <code class="text-white/80">game:HttpGet</code></li>
+          <li class="flex gap-2"><span class="text-emerald-400">✓</span> Fallback <code class="text-white/80">gethui</code> automático</li>
+          <li class="flex gap-2"><span class="text-emerald-400">✓</span> Sem precisar baixar nada</li>
         </ul>
       </div>
       <div class="rounded-2xl border border-[#8B37FF]/20 bg-[#8B37FF]/10 p-6">
-        <div class="text-sm font-bold">Raw URL pronta</div>
+        <div class="text-sm font-bold">Link direto (raw)</div>
         <div class="mt-2 font-mono text-xs break-all bg-black/40 border border-white/10 rounded-xl p-3 text-white/70">https://raw.githubusercontent.com/Ryanabcraft/AxiomUI/main/dist/Axiom.lua</div>
-        <a href="https://raw.githubusercontent.com/Ryanabcraft/AxiomUI/main/dist/Axiom.lua" target="_blank" class="mt-3 inline-flex text-xs font-bold px-4 py-2 rounded-full bg-white text-black">Open raw ↗</a>
+        <a href="https://raw.githubusercontent.com/Ryanabcraft/AxiomUI/main/dist/Axiom.lua" target="_blank" class="mt-3 inline-flex text-xs font-bold px-4 py-2 rounded-full bg-white text-black">Abrir raw ↗</a>
       </div>
     </div>
   </div>
 </section>
 
-<!-- THEMES -->
 <section class="border-y border-white/[0.06] bg-[#0B0D14]">
   <div class="max-w-[1160px] mx-auto px-6 py-12 grid lg:grid-cols-2 gap-8 items-center">
-    <div>
-      <div class="text-[11px] tracking-[0.16em] font-bold text-[#8B37FF]">THEMES • TOKENS</div>
-      <h2 class="mt-2 text-[28px] font-black tracking-[-0.02em]">Troque o tema em<br/>uma linha.</h2>
-      <p class="mt-3 text-sm leading-6 text-white/50">Tokens semânticos propagam via <code class="text-white/70">Theme:Bind</code> para todos os componentes vivos. Nenhum hardcode.</p>
-      <pre class="mt-5 p-4 rounded-2xl bg-[#07080E] border border-white/[0.06] text-xs font-mono leading-6 overflow-x-auto text-white/80"><span class="text-white/40">-- Custom como WindUI, mas reativo</span>
-<span class="text-[#8B37FF]">local</span> Neon = Axiom:<span class="text-[#1F82FF]">CreateTheme</span>({
-  Primary = Color3.fromRGB(<span class="text-[#FFBE4C]">0,220,255</span>),
-  Secondary = Color3.fromRGB(<span class="text-[#FFBE4C]">174,72,255</span>),
-  Radius = UDim.new(<span class="text-[#FFBE4C]">0,12</span>)
-})
-Axiom:<span class="text-[#1F82FF]">SetTheme</span>(Neon)</pre>
-    </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div class="rounded-2xl p-5 border bg-[#07080E] border-white/[0.06]">
-        <div class="text-xs font-bold tracking-widest text-white/40">DARK — DEFAULT</div>
-        <div class="mt-4 flex flex-wrap gap-2">
-          <span class="w-8 h-8 rounded-full bg-[#07080E] border border-white/10"></span>
-          <span class="w-8 h-8 rounded-full bg-[#0D0F18] border border-white/10"></span>
-          <span class="w-8 h-8 rounded-full bg-[#161825] border border-white/10"></span>
-          <span class="w-8 h-8 rounded-full bg-[#8B37FF] border border-white/10"></span>
-        </div>
-        <div class="mt-4 text-xs font-mono text-white/30">Background #07080E<br/>Primary #8B37FF</div>
-      </div>
-      <div class="rounded-2xl p-5 border bg-[#EEF1F9] border-black/10 text-[#181B27]">
-        <div class="text-xs font-bold tracking-widest text-black/40">LIGHT</div>
-        <div class="mt-4 flex flex-wrap gap-2">
-          <span class="w-8 h-8 rounded-full bg-[#EEF1F9] border border-black/10"></span>
-          <span class="w-8 h-8 rounded-full bg-[#E4E8F4] border border-black/10"></span>
-          <span class="w-8 h-8 rounded-full bg-[#664EEB] border border-black/10"></span>
-          <span class="w-8 h-8 rounded-full bg-[#1989E5] border border-black/10"></span>
-        </div>
-        <div class="mt-4 text-xs font-mono text-black/40">Background #EEF1F9<br/>Primary #664EEB</div>
-      </div>
+    <div><div class="text-[11px] tracking-[0.16em] font-bold text-[#8B37FF]">TEMAS</div><h2 class="mt-2 text-[28px] font-black tracking-[-0.02em]">Troque o visual em 1 linha.</h2><pre class="mt-5 p-4 rounded-2xl bg-[#07080E] border border-white/[0.06] text-xs font-mono leading-6 overflow-x-auto text-white/80">Axiom:<span class="text-[#1F82FF]">SetTheme</span>(<span class="text-[#35D399]">"Light"</span>) <span class="text-white/30">-- ou "Dark"</span>
+<span class="text-white/30">-- Custom</span>
+<span class="text-[#8B37FF]">local</span> Neon = Axiom:<span class="text-[#1F82FF]">CreateTheme</span>({Primary=Color3.fromRGB(<span class="text-[#FFBE4C]">0,220,255</span>)})
+Axiom:<span class="text-[#1F82FF]">SetTheme</span>(Neon)</pre></div>
+    <div class="grid grid-cols-2 gap-4">
+      <div class="rounded-2xl p-5 border bg-[#07080E] border-white/[0.06]"><div class="text-xs font-bold tracking-widest text-white/40">DARK — DEFAULT</div><div class="mt-4 flex gap-2"><span class="w-8 h-8 rounded-full bg-[#07080E] border border-white/10"></span><span class="w-8 h-8 rounded-full bg-[#8B37FF] border border-white/10"></span></div><div class="mt-2 text-xs font-mono text-white/30">#07080E • #8B37FF</div></div>
+      <div class="rounded-2xl p-5 border bg-[#EEF1F9] border-black/10 text-[#181B27]"><div class="text-xs font-bold tracking-widest text-black/40">LIGHT</div><div class="mt-4 flex gap-2"><span class="w-8 h-8 rounded-full bg-[#EEF1F9] border border-black/10"></span><span class="w-8 h-8 rounded-full bg-[#664EEB]"></span></div><div class="mt-2 text-xs font-mono text-black/40">#EEF1F9 • #664EEB</div></div>
     </div>
   </div>
 </section>
 
-<!-- COMPARISON -->
 <section class="max-w-[1160px] mx-auto px-6 py-12">
-  <h2 class="text-center text-[22px] font-black tracking-[-0.02em]">Axiom vs o que você já usa</h2>
+  <h2 class="text-center text-[22px] font-black tracking-[-0.02em]">Axiom vs Rayfield vs WindUI</h2>
   <div class="mt-6 overflow-x-auto rounded-2xl border border-white/[0.06]">
     <table class="w-full text-sm">
-      <thead class="bg-white/[0.03] text-xs tracking-widest font-bold text-white/40">
-        <tr><th class="text-left p-4"></th><th class="text-left p-4">Rayfield</th><th class="text-left p-4">WindUI</th><th class="text-left p-4 text-[#8B37FF]">Axiom</th></tr>
-      </thead>
+      <thead class="bg-white/[0.03] text-xs tracking-widest font-bold text-white/40"><tr><th class="text-left p-4"></th><th class="text-left p-4">Rayfield</th><th class="text-left p-4">WindUI</th><th class="text-left p-4 text-[#8B37FF]">Axiom</th></tr></thead>
       <tbody class="divide-y divide-white/[0.04]">
-        <tr><td class="p-4 text-white/60">Bundle size</td><td class="p-4">~80KB</td><td class="p-4">~120KB</td><td class="p-4 font-bold text-white">49KB</td></tr>
-        <tr><td class="p-4 text-white/60">Layout</td><td class="p-4">single column</td><td class="p-4">single column</td><td class="p-4 font-bold text-white">sidebar + 62/38 inspector</td></tr>
-        <tr><td class="p-4 text-white/60">State API</td><td class="p-4">callback only</td><td class="p-4">callback</td><td class="p-4 font-bold text-white">State + Get/Set + Changed</td></tr>
-        <tr><td class="p-4 text-white/60">Theming</td><td class="p-4">hardcoded</td><td class="p-4">configurable</td><td class="p-4 font-bold text-white">semantic tokens live</td></tr>
-        <tr><td class="p-4 text-white/60">Motion</td><td class="p-4">basic</td><td class="p-4">smooth</td><td class="p-4 font-bold text-white">quint + ripple + toast</td></tr>
+        <tr><td class="p-4 text-white/60">Instalação</td><td class="p-4">loadstring ✓</td><td class="p-4">loadstring ✓</td><td class="p-4 font-bold text-white">loadstring ✓ (1 linha)</td></tr>
+        <tr><td class="p-4 text-white/60">Tamanho</td><td class="p-4">~80KB</td><td class="p-4">~120KB</td><td class="p-4 font-bold text-white">49KB</td></tr>
+        <tr><td class="p-4 text-white/60">Layout</td><td class="p-4">coluna única</td><td class="p-4">coluna única</td><td class="p-4 font-bold text-white">sidebar + inspector</td></tr>
+        <tr><td class="p-4 text-white/60">Temas</td><td class="p-4">hardcoded</td><td class="p-4">configurável</td><td class="p-4 font-bold text-white">tokens reativos</td></tr>
       </tbody>
     </table>
   </div>
-  <div class="mt-6 text-center">
-    <a href="https://github.com/Ryanabcraft/AxiomUI" class="inline-flex items-center gap-2 px-7 py-3 rounded-full bg-[#8B37FF] text-white font-bold text-sm shadow-[0_8px_24px_rgba(139,55,255,.35)]">Migrar para Axiom →</a>
-  </div>
 </section>
 
-<!-- ROADMAP -->
-<section class="border-t border-white/[0.06] bg-[#0B0D14]">
-  <div class="max-w-[1160px] mx-auto px-6 py-12">
-    <div class="flex items-end justify-between gap-4">
-      <h2 class="text-[22px] font-black">Roadmap</h2>
-      <span class="text-xs font-mono text-white/30">v1.0 — now • v2.0 — declarative renderer</span>
-    </div>
-    <div class="mt-6 grid md:grid-cols-3 gap-4">
-      <div class="rounded-2xl border border-white/[0.06] bg-[#0D0F18] p-6">
-        <div class="text-xs font-bold tracking-widest text-emerald-400">v1.0 — SHIPPED</div>
-        <ul class="mt-3 space-y-1.5 text-sm text-white/60"><li>• Window + Sidebar</li><li>• 8 controls + Section/Card/Panel</li><li>• Theme engine + Config profiles</li></ul>
-      </div>
-      <div class="rounded-2xl border border-[#8B37FF]/20 bg-[#8B37FF]/10 p-6">
-        <div class="text-xs font-bold tracking-widest text-[#8B37FF]">v1.1 — NEXT</div>
-        <ul class="mt-3 space-y-1.5 text-sm text-white/70"><li>• Modal manager</li><li>• Command palette</li><li>• Rich HSV picker</li></ul>
-      </div>
-      <div class="rounded-2xl border border-white/[0.06] bg-[#0D0F18] p-6">
-        <div class="text-xs font-bold tracking-widest text-white/40">v2.0 — FUTURE</div>
-        <ul class="mt-3 space-y-1.5 text-sm text-white/50"><li>• Declarative renderer</li><li>• Diff reconciliation</li><li>• Plugin registry</li></ul>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- FOOTER -->
 <footer class="border-t border-white/[0.06] py-10">
   <div class="max-w-[1160px] mx-auto px-6 flex flex-col md:flex-row gap-6 justify-between">
-    <div>
-      <div class="flex items-center gap-2"><span class="w-7 h-7 rounded-full bg-gradient-to-br from-[#8B37FF] to-[#1F82FF] grid place-items-center text-[10px] font-black">◆</span><span class="font-black tracking-[0.14em] text-sm">AXIOM</span><span class="text-xs text-white/30">UI ENGINE</span></div>
-      <div class="mt-2 text-xs text-white/40 max-w-[360px] leading-6">Feito para scripters que exigem nível Rayfield/WindUI com acabamento desktop. MIT © 2026 Axiom contributors.</div>
-    </div>
-    <div class="flex gap-10 text-sm">
-      <div><div class="font-bold text-white">Links</div><div class="mt-2 space-y-1 text-white/50"><a href="https://github.com/Ryanabcraft/AxiomUI" class="block hover:text-white">GitHub</a><a href="Documentation/API.md" class="block hover:text-white">API Docs</a><a href="https://raw.githubusercontent.com/Ryanabcraft/AxiomUI/main/dist/Axiom.lua" class="block hover:text-white">Raw bundle</a></div></div>
-      <div><div class="font-bold text-white">Community</div><div class="mt-2 space-y-1 text-white/50"><a href="#" class="block hover:text-white">Discord</a><a href="#" class="block hover:text-white">Report issue</a></div></div>
-    </div>
+    <div><div class="flex items-center gap-2"><span class="w-7 h-7 rounded-full bg-gradient-to-br from-[#8B37FF] to-[#1F82FF] grid place-items-center text-[10px] font-black">◆</span><span class="font-black tracking-[0.14em] text-sm">AXIOM</span><span class="text-xs text-white/30">PARA SCRIPTS</span></div><div class="mt-2 text-xs text-white/40 max-w-[360px] leading-6">A UI para quem faz script. Drop-in para Rayfield/WindUI. MIT © 2026.</div></div>
+    <div class="flex gap-10 text-sm"><div><div class="font-bold">Links</div><div class="mt-2 space-y-1 text-white/50"><a href="https://github.com/Ryanabcraft/AxiomUI" class="block hover:text-white">GitHub</a><a href="https://raw.githubusercontent.com/Ryanabcraft/AxiomUI/main/dist/Axiom.lua" class="block hover:text-white">Raw (loadstring)</a></div></div></div>
   </div>
-  <div class="max-w-[1160px] mx-auto px-6 mt-8 pt-6 border-t border-white/[0.06] flex flex-wrap gap-4 justify-between text-xs text-white/30">
-    <span>◆ Axiom Design System · Dark / Light / Custom</span>
-    <span>Star the repo — it fuels v1.1 ★</span>
-  </div>
+  <div class="max-w-[1160px] mx-auto px-6 mt-8 pt-6 border-t border-white/[0.06] flex justify-between text-xs text-white/30"><span>◆ Axiom — 1 linha loadstring</span><span>Deixe a ★ — ajuda demais</span></div>
 </footer>
 
 <script>
 const installs={
-rojo:{label:'ReplicatedStorage • LocalScript',code:`<span class="text-white/30">-- Coloque a pasta Axiom em ReplicatedStorage</span>
-<span class="text-[#8B37FF]">local</span> Axiom = <span class="text-[#1F82FF]">require</span>(game.ReplicatedStorage.Axiom)
+script:{label:'Seu executor • cole e rode',code:`<span class="text-[#8B37FF]">local</span> Axiom = <span class="text-[#1F82FF]">loadstring</span>(game:<span class="text-[#1F82FF]">HttpGet</span>(<span class="text-[#35D399]">"https://raw.githubusercontent.com/Ryanabcraft/AxiomUI/main/dist/Axiom.lua"</span>))()
 
 <span class="text-[#8B37FF]">local</span> Window = Axiom:<span class="text-[#1F82FF]">CreateWindow</span>({
-  Title=<span class="text-[#35D399]">"Axiom Example"</span>, Subtitle=<span class="text-[#35D399]">"Premium Interface"</span>,
+  Title=<span class="text-[#35D399]">"Meu Hub"</span>, Subtitle=<span class="text-[#35D399]">"Axiom • Rayfield-like"</span>,
   Theme=<span class="text-[#35D399]">"Dark"</span>, Acrylic=<span class="text-[#FFBE4C]">true</span>, Blur=<span class="text-[#FFBE4C]">true</span>
 })
-<span class="text-[#8B37FF]">local</span> Tab = Window:<span class="text-[#1F82FF]">AddTab</span>({Name=<span class="text-[#35D399]">"Dashboard"</span>, Icon=<span class="text-[#35D399]">"home"</span>})
-Tab:<span class="text-[#1F82FF]">AddToggle</span>({Name=<span class="text-[#35D399]">"Enable Feature"</span>, Default=<span class="text-[#FFBE4C]">false</span>})`},
-loadstring:{label:'Loadstring • executor',code:`<span class="text-white/30">-- Hospede dist/Axiom.lua como raw</span>
-<span class="text-[#8B37FF]">local</span> Axiom = <span class="text-[#1F82FF]">loadstring</span>(game:<span class="text-[#1F82FF]">HttpGet</span>(<span class="text-[#35D399]">"https://raw.githubusercontent.com/Ryanabcraft/AxiomUI/main/dist/Axiom.lua"</span>))()
-<span class="text-[#8B37FF]">local</span> Window = Axiom:<span class="text-[#1F82FF]">CreateWindow</span>({Title=<span class="text-[#35D399]">"Axiom"</span>, Theme=<span class="text-[#35D399]">"Dark"</span>})
-Window:<span class="text-[#1F82FF]">AddTab</span>({Name=<span class="text-[#35D399]">"Home"</span>}):<span class="text-[#1F82FF]">AddButton</span>({Name=<span class="text-[#35D399]">"Hello"</span>})`},
-wally:{label:'wally.toml',code:`<span class="text-white/30"># wally.toml</span>
-[dependencies]
-Axiom = <span class="text-[#35D399]">"ryanabcraft/axiom@1.0.0"</span>
-
-<span class="text-white/30">-- e sincronize com Rojo</span>
-rojo sourcemap default.project.json --output sourcemap.json
-wally install`}
+<span class="text-[#8B37FF]">local</span> Tab = Window:<span class="text-[#1F82FF]">AddTab</span>({Name=<span class="text-[#35D399]">"Main"</span>, Icon=<span class="text-[#35D399]">"home"</span>})
+Tab:<span class="text-[#1F82FF]">AddToggle</span>({Name=<span class="text-[#35D399]">"Auto Farm"</span>, Default=<span class="text-[#FFBE4C]">false</span>})
+Tab:<span class="text-[#1F82FF]">AddButton</span>({Name=<span class="text-[#35D399]">"Ativar"</span>, Callback=<span class="text-[#8B37FF]">function</span>() <span class="text-[#1F82FF]">print</span>(<span class="text-[#35D399]">"go"</span>) <span class="text-[#8B37FF]">end</span>})`},
+raw:{label:'Arquivo local • readfile',code:`<span class="text-white/30">-- Baixe dist/Axiom.lua e salve como Axiom.lua</span>
+<span class="text-[#8B37FF]">local</span> Axiom = <span class="text-[#1F82FF]">loadstring</span>(<span class="text-[#1F82FF]">readfile</span>(<span class="text-[#35D399]">"Axiom.lua"</span>))()
+<span class="text-[#8B37FF]">local</span> Window = Axiom:<span class="text-[#1F82FF]">CreateWindow</span>({Title=<span class="text-[#35D399]">"Meu Hub"</span>})
+Window:<span class="text-[#1F82FF]">AddTab</span>({Name=<span class="text-[#35D399]">"Main"</span>}):<span class="text-[#1F82FF]">AddButton</span>({Name=<span class="text-[#35D399]">"Hello"</span>})`},
+studio:{label:'Studio (opcional • não é foco)',code:`<span class="text-white/30">-- Só se você realmente usa Rojo/Studio</span>
+<span class="text-[#8B37FF]">local</span> Axiom = <span class="text-[#1F82FF]">require</span>(game.ReplicatedStorage.Axiom)
+<span class="text-[#8B37FF]">local</span> Window = Axiom:<span class="text-[#1F82FF]">CreateWindow</span>({Title=<span class="text-[#35D399]">"Axiom"</span>})
+<span class="text-white/30">-- Não recomendado para scripts. Use loadstring.</span>`}
 };
-let current='rojo';
 function switchInstall(k){
-  current=k;
   document.querySelectorAll('.install-tab').forEach(b=>{
     b.className='install-tab px-5 py-2.5 rounded-full font-semibold text-sm border '+(b.id==='btn-'+k?'bg-[#8B37FF] text-white font-bold border-[#8B37FF]':'bg-white/[0.04] text-white/60 border-white/10')
   });
   document.getElementById('install-label').textContent=installs[k].label;
   document.getElementById('install-code').innerHTML=installs[k].code;
 }
-function copyInstall(){
-  const t=document.getElementById('install-code').innerText;
-  navigator.clipboard.writeText(t);
-  const btn=event.target; btn.textContent='Copied!'; setTimeout(()=>btn.textContent='Copy code',1200);
-}
-switchInstall('rojo');
-const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting) e.target.classList.add('in')}),{threshold:.12});
+function copyInstall(){const t=document.getElementById('install-code').innerText;navigator.clipboard.writeText(t);const b=event.target;b.textContent='Copiado!';setTimeout(()=>b.textContent='Copiar código',1200)}
+switchInstall('script');
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in')}),{threshold:.12});
 document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
 </script>
 </body>
