@@ -12,7 +12,7 @@ Axiom uses semantic tokens instead of hard-coded component palettes. A theme def
 
 ## Reference layout
 
-The default shell uses an 88 px icon rail, 66 px window chrome, compact window controls, a thin luminous border, a violet-to-blue accent pair, and optional 62/38 content columns. This creates the same hierarchy as a professional editor: navigation, primary canvas, and contextual inspector.
+The default shell uses an 88 px icon rail, 58 px window chrome, compact window controls, a thin luminous border, a violet-to-blue accent pair, and optional 62/38 content columns. This creates the same hierarchy as a professional editor: navigation, primary canvas, and contextual inspector.
 
 ## Conceptual logo
 
