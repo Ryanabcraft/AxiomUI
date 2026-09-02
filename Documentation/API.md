@@ -4,7 +4,7 @@
 
 ### `Axiom:CreateWindow(options)`
 
-Creates a desktop-style window. Options: `Title`, `Subtitle`, `Theme`, `Size`, `Acrylic`, and `Blur`. `Acrylic` controls the window surface transparency. `Blur` adds depth to that local surface only; it never creates or changes a `BlurEffect`, `Lighting`, or `CurrentCamera` object.
+Creates a desktop-style window. Options: `Title`, `Subtitle`, `Theme`, `Size`, `Scale`, `Acrylic`, and `Blur`. `Scale` controls the complete rendered UI without changing its logical dimensions; it defaults to `0.62` and is clamped from `0.45` to `1.25`. `Acrylic` controls the window surface transparency. `Blur` adds depth to that local surface only; it never creates or changes a `BlurEffect`, `Lighting`, or `CurrentCamera` object.
 
 ### `Axiom:SetTheme(theme)`
 

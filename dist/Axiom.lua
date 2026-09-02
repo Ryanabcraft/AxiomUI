@@ -624,9 +624,25 @@ local HEADER_HEIGHT=58
 local WINDOW_RADIUS=14
 local MIN_WIDTH=620
 local MIN_HEIGHT=400
+local DEFAULT_UI_SCALE=0.62
+local MIN_UI_SCALE=0.45
+local MAX_UI_SCALE=1.25
 local TWEEN_MINIMIZE=0.22
 local TWEEN_RESTORE=0.26
 local TWEEN_MAXIMIZE=0.30
+local Z_INDEX={
+    Background=1,
+    Body=5,
+    Sidebar=10,
+    Content=10,
+    Tab=15,
+    Header=30,
+    Resize=40,
+    Overlay=100,
+    Tooltip=110,
+    Popup=120,
+    Modal=150,
+}
 
 local function getViewportSize()
     local cam=workspace.CurrentCamera
@@ -638,7 +654,7 @@ local function offsetPosition(position,x,y)
     return UDim2.new(position.X.Scale,position.X.Offset+x,position.Y.Scale,position.Y.Offset+y)
 end
 
-local function getMaximizedBounds()
+local function getMaximizedBounds(uiScale)
     local viewport=getViewportSize()
     local topLeft,bottomRight=Vector2.zero,Vector2.zero
     pcall(function() topLeft,bottomRight=GuiService:GetGuiInset() end)
@@ -646,9 +662,9 @@ local function getMaximizedBounds()
     local top=math.max(24,topLeft.Y+12)
     local right=math.max(24,bottomRight.X+12)
     local bottom=math.max(24,bottomRight.Y+12)
-    local width=math.max(MIN_WIDTH,viewport.X-left-right)
-    local height=math.max(MIN_HEIGHT,viewport.Y-top-bottom)
-    return UDim2.fromOffset(math.round(width),math.round(height)),UDim2.fromOffset(math.round(left+width/2),math.round(top+height/2))
+    local width=math.max(MIN_WIDTH,(viewport.X-left-right)/uiScale)
+    local height=math.max(MIN_HEIGHT,(viewport.Y-top-bottom)/uiScale)
+    return UDim2.fromOffset(math.round(width),math.round(height)),UDim2.fromOffset(math.round(left+width*uiScale/2),math.round(top+height*uiScale/2))
 end
 
 local function makeDraggable(window, frame, handle)
@@ -657,6 +673,7 @@ local function makeDraggable(window, frame, handle)
     conns[1]=handle.InputBegan:Connect(function(input)
         if window._WindowState.Maximized and not window._WindowState.Minimized then return end
         if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+            window:_CommitScale()
             dragging=true; startInput=input.Position; startPos=frame.Position
         end
     end)
@@ -713,9 +730,13 @@ end
 
 function Window.new(context,options)
     options=options or {}
+    local finalScale=tonumber(options.Scale) or DEFAULT_UI_SCALE
+    if finalScale~=finalScale then finalScale=DEFAULT_UI_SCALE end
+    finalScale=math.clamp(finalScale,MIN_UI_SCALE,MAX_UI_SCALE)
     local self=setmetatable({
         Context=context,
         Tabs={},ActiveTab=nil,
+        Scale=finalScale,
         Minimized=false,Maximized=false,
         _Cleanup=Cleanup.new(),
         _TransitionId=0,
@@ -729,18 +750,18 @@ function Window.new(context,options)
     local root=Utility.Create("Frame",{
         Name="AxiomWindow",AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),
         Size=options.Size or UDim2.fromOffset(820,520),BackgroundTransparency=1,
-        BorderSizePixel=0,ClipsDescendants=false,Parent=context.Gui,
+        BorderSizePixel=0,ClipsDescendants=false,ZIndex=Z_INDEX.Background,Parent=context.Gui,
     })
-    local scale=Utility.Create("UIScale",{Scale=0.965,Parent=root})
-    local scaleTween=Animation.Tween(scale,{Scale=1},0.34)
+    local scale=Utility.Create("UIScale",{Scale=finalScale*0.965,Parent=root})
+    local scaleTween=Animation.Tween(scale,{Scale=finalScale},0.34)
     if scaleTween then self._Cleanup:Add(scaleTween) end
-    self._Cleanup:Add(function() Animation.Cancel(scale); scale.Scale=1 end)
+    self._Cleanup:Add(function() Animation.Cancel(scale) end)
 
     -- Exactly one outer border: a rounded 1px background shell. Using a Frame instead
     -- of UIStroke avoids corner halos caused by stroke rasterization during UIScale.
     local windowVisual=Utility.Create("Frame",{
         Name="WindowVisual",Size=UDim2.fromScale(1,1),BackgroundColor3=t.Stroke,
-        BackgroundTransparency=0.42,BorderSizePixel=0,Parent=root
+        BackgroundTransparency=0.42,BorderSizePixel=0,ZIndex=Z_INDEX.Background,Parent=root
     })
     Utility.Corner(windowVisual,UDim.new(0,WINDOW_RADIUS))
     context.Theme:Bind(windowVisual,"BackgroundColor3","Stroke")
@@ -750,7 +771,7 @@ function Window.new(context,options)
     local visualTransparency=acrylic and math.max(0.02,t.AcrylicTransparency-(localBlur and 0.035 or 0)) or 0
     local windowClip=Utility.Create("Frame",{
         Name="WindowClip",Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=t.Background,
-        BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=true,Parent=windowVisual
+        BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=true,ZIndex=Z_INDEX.Background,Parent=windowVisual
     })
     Utility.Corner(windowClip,UDim.new(0,WINDOW_RADIUS-1))
     context.Theme:Bind(windowClip,"BackgroundColor3","Background")
@@ -764,14 +785,10 @@ function Window.new(context,options)
     if openTween then self._Cleanup:Add(openTween) end
 
     -- TITLE BAR (Header) - dentro do clip, cantos arredondados via parent clip
-    local top=Utility.Create("Frame",{Name="TitleBar",Size=UDim2.new(1,0,0,HEADER_HEIGHT),BackgroundColor3=t.Surface,BackgroundTransparency=0.58,BorderSizePixel=0,Parent=windowClip})
+    local top=Utility.Create("Frame",{Name="TitleBar",Size=UDim2.new(1,0,0,HEADER_HEIGHT),BackgroundColor3=t.Surface,BackgroundTransparency=0.58,BorderSizePixel=0,ZIndex=Z_INDEX.Header,Parent=windowClip})
     Utility.Create("Frame",{AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,12,1,0),Size=UDim2.new(1,-24,0,1),BackgroundColor3=t.Stroke,BackgroundTransparency=0.5,BorderSizePixel=0,Parent=top})
-    local logo=Utility.Create("Frame",{Position=UDim2.fromOffset(18,14),Size=UDim2.fromOffset(30,30),BackgroundColor3=t.Primary,BorderSizePixel=0,Parent=top})
-    Utility.Corner(logo,UDim.new(1,0))
-    Utility.Create("UIGradient",{Rotation=135,Color=ColorSequence.new(t.Primary,Color3.fromRGB(36,39,59)),Parent=logo})
-    Utility.Stroke(logo,Color3.new(1,1,1),0.76)
-    Utility.Create("TextLabel",{Position=UDim2.fromOffset(58,9),Size=UDim2.new(1,-220,0,21),BackgroundTransparency=1,Font=Enum.Font.GothamBold,Text=options.Title or "AXIOM",TextColor3=t.Text,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,Parent=top})
-    Utility.Create("TextLabel",{Position=UDim2.fromOffset(58,29),Size=UDim2.new(1,-220,0,16),BackgroundTransparency=1,Font=Enum.Font.Gotham,Text=options.Subtitle or "UI ENGINE",TextColor3=t.TextMuted,TextSize=9,TextXAlignment=Enum.TextXAlignment.Left,Parent=top})
+    Utility.Create("TextLabel",{Position=UDim2.fromOffset(18,9),Size=UDim2.new(1,-180,0,21),BackgroundTransparency=1,Font=Enum.Font.GothamBold,Text=options.Title or "AXIOM",TextColor3=t.Text,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,Parent=top})
+    Utility.Create("TextLabel",{Position=UDim2.fromOffset(18,29),Size=UDim2.new(1,-180,0,16),BackgroundTransparency=1,Font=Enum.Font.Gotham,Text=options.Subtitle or "UI ENGINE",TextColor3=t.TextMuted,TextSize=9,TextXAlignment=Enum.TextXAlignment.Left,Parent=top})
 
     local function topButton(text,x,callback,color)
         local button=Utility.Create("TextButton",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,x,0,13),Size=UDim2.fromOffset(32,32),BackgroundColor3=t.SurfaceAlt,BackgroundTransparency=0.22,BorderSizePixel=0,AutoButtonColor=false,Font=Enum.Font.GothamBold,Text=text,TextColor3=color or t.TextMuted,TextSize=14,Parent=top})
@@ -786,9 +803,9 @@ function Window.new(context,options)
     topButton("×",-18,function() self:Close() end,Color3.fromRGB(187,91,255))
 
     -- BODY: CanvasGroup para fade controlado no minimize
-    local body=Utility.Create("CanvasGroup",{Name="Body",Position=UDim2.fromOffset(0,HEADER_HEIGHT),Size=UDim2.new(1,0,1,-HEADER_HEIGHT),BackgroundTransparency=1,BorderSizePixel=0,GroupTransparency=0,Parent=windowClip})
+    local body=Utility.Create("CanvasGroup",{Name="Body",Position=UDim2.fromOffset(0,HEADER_HEIGHT),Size=UDim2.new(1,0,1,-HEADER_HEIGHT),BackgroundTransparency=1,BorderSizePixel=0,GroupTransparency=0,ZIndex=Z_INDEX.Body,Parent=windowClip})
 
-    local sidebar=Utility.Create("Frame",{Position=UDim2.fromOffset(0,0),Size=UDim2.new(0,88,1,0),BackgroundColor3=t.Surface,BackgroundTransparency=0.64,BorderSizePixel=0,Parent=body})
+    local sidebar=Utility.Create("Frame",{Position=UDim2.fromOffset(0,0),Size=UDim2.new(0,88,1,0),BackgroundColor3=t.Surface,BackgroundTransparency=0.64,BorderSizePixel=0,ZIndex=Z_INDEX.Sidebar,Parent=body})
     Utility.Create("Frame",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,12),Size=UDim2.new(0,1,1,-24),BackgroundColor3=t.Stroke,BackgroundTransparency=0.52,BorderSizePixel=0,Parent=sidebar})
     local tabList=Utility.Create("Frame",{Position=UDim2.fromOffset(15,18),Size=UDim2.new(1,-30,1,-92),BackgroundTransparency=1,Parent=sidebar})
     Utility.Create("UIListLayout",{Padding=UDim.new(0,9),HorizontalAlignment=Enum.HorizontalAlignment.Center,Parent=tabList})
@@ -798,9 +815,17 @@ function Window.new(context,options)
     Utility.Corner(statusDot,UDim.new(1,0)); Utility.Create("UIGradient",{Color=ColorSequence.new(t.Primary,t.Secondary),Rotation=45,Parent=statusDot})
 
     -- Content dentro do Body, com offset correto (22px abaixo do header)
-    local content=Utility.Create("Frame",{Position=UDim2.fromOffset(110,22),Size=UDim2.new(1,-132,1,-44),BackgroundTransparency=1,Parent=body})
+    local content=Utility.Create("Frame",{Position=UDim2.fromOffset(110,22),Size=UDim2.new(1,-132,1,-44),BackgroundTransparency=1,ZIndex=Z_INDEX.Content,Parent=body})
+
+    -- Dedicated stacking contexts keep transient UI above every page/control while
+    -- preserving WindowClip as the single rounded clipping boundary.
+    local overlayLayer=Utility.Create("Frame",{Name="OverlayLayer",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=false,Active=false,ZIndex=Z_INDEX.Overlay,Parent=windowClip})
+    local tooltipLayer=Utility.Create("Frame",{Name="Tooltips",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=false,Active=false,ZIndex=Z_INDEX.Tooltip,Parent=overlayLayer})
+    local popupLayer=Utility.Create("Frame",{Name="Popups",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=false,Active=false,ZIndex=Z_INDEX.Popup,Parent=overlayLayer})
+    local modalLayer=Utility.Create("Frame",{Name="Modals",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=false,Active=false,ZIndex=Z_INDEX.Modal,Parent=overlayLayer})
 
     self.Root=root
+    self.UIScale=scale
     self.WindowVisual=windowVisual
     self.WindowClip=windowClip
     self.TitleBar=top
@@ -808,6 +833,10 @@ function Window.new(context,options)
     self.Sidebar=sidebar
     self.TabList=tabList
     self.Content=content
+    self.OverlayLayer=overlayLayer
+    self.TooltipLayer=tooltipLayer
+    self.PopupLayer=popupLayer
+    self.ModalLayer=modalLayer
     self.OriginalSize=root.Size
     self.OriginalPosition=root.Position
     self._WindowState.PreviousSize=root.Size
@@ -827,7 +856,7 @@ function Window.new(context,options)
         AutoButtonColor=false,
         Text="",
         TextTransparency=1,
-        ZIndex=10,
+        ZIndex=Z_INDEX.Resize,
         Parent=windowClip
     })
     self.ResizeHandle=resize
@@ -837,17 +866,18 @@ function Window.new(context,options)
     local c1=resize.InputBegan:Connect(function(input)
         if self._WindowState.Minimized or self._WindowState.Maximized then return end
         if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+            self:_CommitScale()
             resizing=true
             resizeStart=input.Position
-            sizeStart=root.AbsoluteSize
+            sizeStart=root.AbsoluteSize/finalScale
         end
     end)
     local c2=UserInputService.InputChanged:Connect(function(input)
         if not resizing then return end
         if self._WindowState.Minimized or self._WindowState.Maximized then return end
         if input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch then
-            local delta=input.Position-resizeStart
-            local maxSize=getMaximizedBounds()
+            local delta=(input.Position-resizeStart)/finalScale
+            local maxSize=getMaximizedBounds(finalScale)
             local maxW=maxSize.X.Offset
             local maxH=maxSize.Y.Offset
             local newW=math.clamp(sizeStart.X+delta.X, MIN_WIDTH, maxW)
@@ -876,24 +906,54 @@ function Window:_Delay(seconds,callback)
     return thread
 end
 
+function Window:_CommitScale()
+    if not self.UIScale then return end
+    Animation.Cancel(self.UIScale)
+    self.UIScale.Scale=self.Scale
+end
+
 function Window:AddTab(options)
     assert(not self._IsDestroyed,"Cannot add a tab to a destroyed Window")
     options=options or {}
     local t=self.Context.Theme.Current
-    local button=Utility.Create("TextButton",{Size=UDim2.fromOffset(56,52),BackgroundColor3=t.Primary,BackgroundTransparency=1,BorderSizePixel=0,AutoButtonColor=false,Text="",Parent=self.TabList})
+    local button=Utility.Create("TextButton",{Size=UDim2.fromOffset(56,52),BackgroundColor3=t.Primary,BackgroundTransparency=1,BorderSizePixel=0,AutoButtonColor=false,Text="",ZIndex=Z_INDEX.Tab,Parent=self.TabList})
     Utility.Corner(button,UDim.new(0,10)); Utility.Stroke(button,t.Primary,1)
     local gradient=Utility.Create("UIGradient",{Rotation=135,Color=ColorSequence.new(Color3.fromRGB(151,48,255),Color3.fromRGB(82,35,204)),Parent=button})
-    local icon=Utility.Create("ImageLabel",{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(22,22),BackgroundTransparency=1,Image=Icons.Get(options.Icon),ImageColor3=t.TextMuted,Parent=button})
-    local tooltip=Utility.Create("TextLabel",{Position=UDim2.new(1,12,0.5,-15),Size=UDim2.fromOffset(0,30),BackgroundColor3=t.SurfaceAlt,BackgroundTransparency=0.04,BorderSizePixel=0,Font=Enum.Font.GothamMedium,Text=options.Name or "Tab",TextColor3=t.Text,TextSize=11,Visible=false,ClipsDescendants=true,ZIndex=20,Parent=button})
+    local icon=Utility.Create("ImageLabel",{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(22,22),BackgroundTransparency=1,Image=Icons.Get(options.Icon),ImageColor3=t.TextMuted,ImageTransparency=0,ImageRectOffset=Vector2.zero,ImageRectSize=Vector2.zero,ZIndex=Z_INDEX.Tab+1,Parent=button})
+    local tooltip=Utility.Create("TextLabel",{AnchorPoint=Vector2.new(0,0.5),Size=UDim2.fromOffset(0,30),BackgroundColor3=t.SurfaceAlt,BackgroundTransparency=0.04,BorderSizePixel=0,Font=Enum.Font.GothamMedium,Text=options.Name or "Tab",TextColor3=t.Text,TextSize=11,Visible=false,ClipsDescendants=true,ZIndex=Z_INDEX.Tooltip,Parent=self.TooltipLayer})
     Utility.Corner(tooltip,UDim.new(0,7)); Utility.Stroke(tooltip,t.Stroke,0.45)
-    self._Cleanup:Add(button.MouseEnter:Connect(function() if tooltip.Parent then tooltip.Visible=true; Animation.Tween(tooltip,{Size=UDim2.fromOffset(110,30)},0.16) end end))
-    self._Cleanup:Add(button.MouseLeave:Connect(function()
+    local tooltipRevision=0
+    local function positionTooltip()
+        local currentScale=self.UIScale.Scale
+        local relativePosition=(button.AbsolutePosition-self.WindowClip.AbsolutePosition)/currentScale
+        local buttonSize=button.AbsoluteSize/currentScale
+        tooltip.Position=UDim2.fromOffset(math.round(relativePosition.X+buttonSize.X+12),math.round(relativePosition.Y+buttonSize.Y/2))
+    end
+    local function hideTooltip(immediate)
+        tooltipRevision+=1
+        local revision=tooltipRevision
+        if immediate then
+            Animation.Cancel(tooltip)
+            if tooltip.Parent then tooltip.Size=UDim2.fromOffset(0,30); tooltip.Visible=false end
+            return
+        end
         Animation.Tween(tooltip,{Size=UDim2.fromOffset(0,30)},0.12)
-        self:_Delay(0.13,function() if tooltip.Parent then tooltip.Visible=false end end)
+        self:_Delay(0.13,function()
+            if revision==tooltipRevision and tooltip.Parent then tooltip.Visible=false end
+        end)
+    end
+    self._Cleanup:Add(button.MouseEnter:Connect(function()
+        if not tooltip.Parent then return end
+        tooltipRevision+=1
+        positionTooltip()
+        tooltip.Visible=true
+        Animation.Tween(tooltip,{Size=UDim2.fromOffset(110,30)},0.16)
     end))
-    local page=Utility.Create("ScrollingFrame",{Name=(options.Name or "Tab").."Page",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,ScrollBarImageColor3=t.Primary,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new(),Visible=false,Parent=self.Content})
+    self._Cleanup:Add(button.MouseLeave:Connect(function() hideTooltip(false) end))
+    self._Cleanup:Add(function() hideTooltip(true) end)
+    local page=Utility.Create("ScrollingFrame",{Name=(options.Name or "Tab").."Page",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,ScrollBarImageColor3=t.Primary,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new(),Visible=false,ZIndex=Z_INDEX.Content,Parent=self.Content})
     Utility.Padding(page,2); Utility.Create("UIListLayout",{Padding=UDim.new(0,12),SortOrder=Enum.SortOrder.LayoutOrder,Parent=page})
-    local tab=attachContainerApi({Window=self,Button=button,Icon=icon,Gradient=gradient,Page=page,Options=options},self.Context,page)
+    local tab=attachContainerApi({Window=self,Button=button,Icon=icon,Gradient=gradient,Tooltip=tooltip,_HideTooltip=hideTooltip,Page=page,Options=options},self.Context,page)
     function tab:Select() if self.Window then self.Window:SelectTab(self) end end
     function tab:AddColumnGroup(groupOptions)
         groupOptions=groupOptions or {}
@@ -926,6 +986,7 @@ end
 
 function Window:_DoMinimize()
     if self._WindowState.IsAnimating then return end
+    self:_CommitScale()
     self._TransitionId+=1
     local token=self._TransitionId
     self._WindowState.IsAnimating=true
@@ -934,17 +995,18 @@ function Window:_DoMinimize()
         self._WindowState.PreviousSize=self.Root.Size
         self._WindowState.PreviousPosition=self.Root.Position
     end
-    local deltaY=math.max(0,(self.Root.AbsoluteSize.Y-HEADER_HEIGHT)/2)
+    local deltaY=math.max(0,(self.Root.AbsoluteSize.Y-HEADER_HEIGHT*self.Scale)/2)
     self._WindowState.MinimizeDeltaY=deltaY
     self._WindowState.MinimizedPosition=offsetPosition(self.Root.Position,0,-deltaY)
     self._WindowState.Minimized=true
     self.Minimized=true
+    for _,tab in ipairs(self.Tabs) do if tab._HideTooltip then tab._HideTooltip(true) end end
     Animation.Tween(self.Body,{GroupTransparency=1},0.12)
     self:_Delay(0.12,function()
         if token~=self._TransitionId or not self._WindowState.Minimized then return end
         self.Body.Visible=false
         self.ResizeHandle.Visible=false
-        local minimizedSize=UDim2.fromOffset(self.Root.AbsoluteSize.X,HEADER_HEIGHT)
+        local minimizedSize=UDim2.new(self.Root.Size.X.Scale,self.Root.Size.X.Offset,0,HEADER_HEIGHT)
         Animation.Tween(self.Root,{Size=minimizedSize,Position=self._WindowState.MinimizedPosition},TWEEN_MINIMIZE,Enum.EasingStyle.Quint,Enum.EasingDirection.Out)
         self:_Delay(TWEEN_MINIMIZE,function()
             if token==self._TransitionId then self._WindowState.IsAnimating=false end
@@ -965,7 +1027,7 @@ function Window:_DoRestoreFromMinimize()
     if self._WindowState.PreMinimizeMaximized then
         self._WindowState.Maximized=true
         self.Maximized=true
-        targetSize,targetPos=getMaximizedBounds()
+        targetSize,targetPos=getMaximizedBounds(self.Scale)
         Animation.Tween(self.Root,{Size=targetSize,Position=targetPos},TWEEN_RESTORE)
         self:_Delay(TWEEN_RESTORE,function()
             if token~=self._TransitionId then return end
@@ -1003,6 +1065,7 @@ end
 function Window:Maximize()
     if self._IsDestroyed then return end
     if self._WindowState.IsAnimating then return end
+    self:_CommitScale()
     if self._WindowState.Minimized then
         self._WindowState.PreMinimizeMaximized=true
         self:_DoRestoreFromMinimize()
@@ -1031,7 +1094,7 @@ function Window:Maximize()
         self._WindowState.IsAnimating=true
         self._WindowState.Maximized=true
         self.Maximized=true
-        local maxSize,maxPos=getMaximizedBounds()
+        local maxSize,maxPos=getMaximizedBounds(self.Scale)
         Animation.Tween(self.Root,{Size=maxSize,Position=maxPos},TWEEN_MAXIMIZE, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
         self:_Delay(TWEEN_MAXIMIZE,function()
             if token~=self._TransitionId then return end
@@ -1046,7 +1109,7 @@ function Window:Close()
     self._TransitionId+=1
     Animation.Tween(self.WindowClip,{BackgroundTransparency=1},0.20)
     Animation.Tween(self.WindowVisual,{BackgroundTransparency=1},0.20)
-    Animation.Tween(self.Root,{Size=UDim2.fromOffset(self.Root.AbsoluteSize.X*0.94,self.Root.AbsoluteSize.Y*0.94)},0.24)
+    Animation.Tween(self.UIScale,{Scale=self.Scale*0.94},0.24)
     self:_Delay(0.25,function() self:Destroy() end)
 end
 
@@ -1074,6 +1137,8 @@ function Window:Destroy()
         tab.Button=nil
         tab.Icon=nil
         tab.Gradient=nil
+        tab.Tooltip=nil
+        tab._HideTooltip=nil
         tab.Page=nil
         tab.RootParent=nil
         tab.CurrentParent=nil
@@ -1081,10 +1146,15 @@ function Window:Destroy()
     table.clear(self.Tabs)
     self.ActiveTab=nil
     self.ResizeHandle=nil
+    self.UIScale=nil
     self.Body=nil
     self.Sidebar=nil
     self.TabList=nil
     self.Content=nil
+    self.OverlayLayer=nil
+    self.TooltipLayer=nil
+    self.PopupLayer=nil
+    self.ModalLayer=nil
     self.TitleBar=nil
     self.WindowClip=nil
     self.WindowVisual=nil
@@ -1298,6 +1368,9 @@ __modules["Services/Icons"]=function()
 local Icons = {
     home = "rbxassetid://10723407389",
     settings = "rbxassetid://10734950309",
+    user = "rbxassetid://10747373176",
+    eye = "rbxassetid://10723346959",
+    search = "rbxassetid://10734943674",
     sliders = "rbxassetid://10734951847",
     palette = "rbxassetid://10734973486",
     code = "rbxassetid://10709810463",
@@ -1307,8 +1380,32 @@ local Icons = {
     close = "rbxassetid://10747384394",
 }
 
+local aliases = {
+    default = "info",
+    visual = "eye",
+    movement = "sliders",
+    config = "settings",
+    configuration = "settings",
+    profile = "user",
+}
+
+local function isValidContentId(value)
+    return value:match("^rbxassetid://%d+$")
+        or value:match("^rbxasset://.+")
+        or value:match("^https?://.+")
+end
+
 function Icons.Get(name)
-    return Icons[name] or name or ""
+    if type(name) == "number" and name > 0 then
+        return "rbxassetid://" .. math.floor(name)
+    end
+    if type(name) == "string" then
+        local key = string.lower(name)
+        key = aliases[key] or key
+        if Icons[key] then return Icons[key] end
+        if isValidContentId(name) then return name end
+    end
+    return Icons[aliases.default]
 end
 
 return Icons

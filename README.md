@@ -36,7 +36,7 @@
 | **Layout** | Coluna única | Coluna única | **Sidebar 88px + Inspector 62/38** |
 | **State** | Só callback | Só callback | **State `Get()/Set()` + `Changed`** |
 | **Temas** | Hardcoded | Configurável | **Tokens live `Theme:Bind()`** |
-| **Tamanho** | ~80KB | ~120KB | **68KB — compacto** |
+| **Tamanho** | ~80KB | ~120KB | **73KB — compacto** |
 | **Motion** | Básica | Suave | **Quint 120-340ms + ripple + toast** |
 
 > **Axiom é drop-in replacement para Rayfield/WindUI.** Mesma ideia, acabamento de produto desktop. Copiar, colar e sair usando.
@@ -187,7 +187,7 @@ Axiom:Notify({Title="Axiom carregada!", Description="Pronto para usar."})
 
 **Como hospedar?** O arquivo já está hospedado no GitHub raw. Só usar a URL. Se quiser, hospede `dist/Axiom.lua` no seu próprio raw/gist.
 
-**É pesada?** Não — o bundle atual tem 68KB com window manager, 8 controles, temas, profiles e animações.
+**É pesada?** Não — o bundle atual tem 73KB com window manager, 8 controles, temas, profiles e animações.
 
 ---
 
