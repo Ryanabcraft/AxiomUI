@@ -862,7 +862,7 @@ function Window.new(context,options)
 
     local localBlur=options.Blur==true
     local acrylic=options.Acrylic~=false
-    local visualTransparency=acrylic and math.max(0.02,t.AcrylicTransparency-(localBlur and 0.035 or 0)) or 0
+    local visualTransparency=acrylic and math.min(0.22,t.AcrylicTransparency+0.04+(localBlur and 0.03 or 0)) or 0
     local windowClip=Utility.Create("Frame",{
         Name="WindowClip",Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=t.Background,
         BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=true,ZIndex=Z_INDEX.Background,Parent=windowVisual
