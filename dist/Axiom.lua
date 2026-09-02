@@ -892,9 +892,9 @@ function Window.new(context,options)
         self._Cleanup:Add(button.Activated:Connect(callback))
         return button
     end
-    topButton("—",-94,function() self:Minimize() end,t.Primary)
-    topButton("□",-56,function() self:Maximize() end,t.Secondary)
-    topButton("×",-18,function() self:Close() end,Color3.fromRGB(187,91,255))
+    topButton("—",-94,function() self:Minimize() end,t.Warning)
+    topButton("□",-56,function() self:Maximize() end,t.Success)
+    topButton("×",-18,function() self:Close() end,t.Danger)
 
     -- BODY: CanvasGroup para fade controlado no minimize
     local body=Utility.Create("CanvasGroup",{Name="Body",Position=UDim2.fromOffset(0,HEADER_HEIGHT),Size=UDim2.new(1,0,1,-HEADER_HEIGHT),BackgroundTransparency=1,BorderSizePixel=0,GroupTransparency=0,ZIndex=Z_INDEX.Body,Parent=windowClip})
