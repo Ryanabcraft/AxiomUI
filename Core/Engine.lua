@@ -27,13 +27,42 @@ function Engine.new()
     return self
 end
 
+-- BUG 1 FIX: Blur global removido. Acrylic agora é simulado localmente via transparência + gradient.
+-- Se Blur=true, cria um BlurEffect EXTREMAMENTE sutil (Size 2) por janela, com lifecycle amarrado à janela.
+-- Nunca Size 12 que destrói visibilidade do jogo.
 function Engine:CreateWindow(options)
     options=options or {}
     if options.Theme then self:SetTheme(options.Theme) end
+    local window=Window.new(self,options)
+    table.insert(self.Windows,window)
+
+    -- Acrylic é local (BackgroundTransparency + UIGradient), não precisa de Blur global.
+    -- Blur separado e seguro: apenas se explicitamente pedido, intensidade mínima e com cleanup.
     if options.Blur then
-        local blur=Lighting:FindFirstChild("AxiomBlur") or Instance.new("BlurEffect"); blur.Name="AxiomBlur"; blur.Size=0; blur.Parent=Lighting; Animation.Tween(blur,{Size=12},0.3)
+        local blur
+        local ok=pcall(function()
+            blur=Instance.new("BlurEffect")
+            blur.Name="AxiomBlur_"..tostring(window.Root:GetDebugId())
+            blur.Size=0
+            blur.Enabled=true
+            -- Tenta Lighting, fallback para CurrentCamera (ambos suportam BlurEffect)
+            local parented=false
+            pcall(function() blur.Parent=Lighting; parented=true end)
+            if not parented then
+                pcall(function() blur.Parent=workspace.CurrentCamera end)
+            end
+        end)
+        if ok and blur and blur.Parent then
+            window._Blur=blur
+            -- Intensidade premium sutil — fundo continua claramente visível
+            Animation.Tween(blur,{Size=2},0.32)
+        else
+            if blur then pcall(function() blur:Destroy() end) end
+            window._Blur=nil
+        end
     end
-    local window=Window.new(self,options); table.insert(self.Windows,window); return window
+
+    return window
 end
 
 function Engine:SetTheme(theme)
@@ -56,8 +85,25 @@ function Engine:Notify(options)
 end
 
 function Engine:Destroy()
-    local blur=Lighting:FindFirstChild("AxiomBlur"); if blur then blur:Destroy() end
-    self.Gui:Destroy()
+    -- Limpa todos os blurs por janela (não deixa órfão)
+    for _,w in ipairs(self.Windows) do
+        if w._Blur then pcall(function() w._Blur:Destroy() end) w._Blur=nil end
+        if w.Destroy then pcall(function() w:Destroy() end) end
+    end
+    -- Fallback: remove qualquer AxiomBlur legado em Lighting/Camera
+    pcall(function()
+        local legacy=Lighting:FindFirstChild("AxiomBlur")
+        if legacy then legacy:Destroy() end
+    end)
+    pcall(function()
+        local cam=workspace.CurrentCamera
+        if cam then
+            for _,v in ipairs(cam:GetChildren()) do
+                if v.Name:find("AxiomBlur") then v:Destroy() end
+            end
+        end
+    end)
+    if self.Gui then pcall(function() self.Gui:Destroy() end) end
 end
 
 return Engine

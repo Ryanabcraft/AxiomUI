@@ -11,22 +11,39 @@ local Components={
 }
 local Window={}; Window.__index=Window
 
-local function makeDraggable(frame,handle)
-    local dragging,startInput,startPos=false,nil,nil
-    handle.InputBegan:Connect(function(input)
+local HEADER_HEIGHT=66
+local MIN_WIDTH=620
+local MIN_HEIGHT=400
+local TWEEN_MINIMIZE=0.22
+local TWEEN_RESTORE=0.26
+local TWEEN_MAXIMIZE=0.30
+
+local function getViewportSize()
+    local cam=workspace.CurrentCamera
+    if cam then return cam.ViewportSize end
+    return Vector2.new(1920,1080)
+end
+
+local function makeDraggable(window, frame, handle)
+    local dragging, startInput, startPos=false,nil,nil
+    local conns={}
+    conns[1]=handle.InputBegan:Connect(function(input)
+        if window._WindowState.Minimized or window._WindowState.Maximized then return end
         if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
             dragging=true; startInput=input.Position; startPos=frame.Position
         end
     end)
-    UserInputService.InputChanged:Connect(function(input)
+    conns[2]=UserInputService.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then
+            if window._WindowState.Minimized or window._WindowState.Maximized then return end
             local delta=input.Position-startInput
             frame.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+delta.X,startPos.Y.Scale,startPos.Y.Offset+delta.Y)
         end
     end)
-    UserInputService.InputEnded:Connect(function(input)
+    conns[3]=UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then dragging=false end
     end)
+    for _,c in ipairs(conns) do table.insert(window._Connections,c) end
 end
 
 local function attachContainerApi(container,context,parent)
@@ -66,13 +83,23 @@ end
 
 function Window.new(context,options)
     options=options or {}
-    local self=setmetatable({Context=context,Tabs={},ActiveTab=nil,Minimized=false,Maximized=false},Window)
+    local self=setmetatable({
+        Context=context,
+        Tabs={},ActiveTab=nil,
+        Minimized=false,Maximized=false,
+        _Connections={},
+        _Blur=nil,
+        _IsDestroyed=false,
+        _WindowState={Minimized=false,Maximized=false,PreviousSize=nil,PreviousPosition=nil,PreMinimizeMaximized=nil,IsAnimating=false}
+    },Window)
     local t=context.Theme.Current
+
+    -- ROOT: outer frame with corner+stroke, NO ClipsDescendants (clip via inner)
     local root=Utility.Create("Frame",{
         Name="AxiomWindow",AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),
         Size=options.Size or UDim2.fromOffset(820,520),BackgroundColor3=t.Background,
         BackgroundTransparency=options.Acrylic==false and 0 or t.AcrylicTransparency,
-        BorderSizePixel=0,ClipsDescendants=true,Parent=context.Gui,
+        BorderSizePixel=0,ClipsDescendants=false,Parent=context.Gui,
     })
     Utility.Corner(root,UDim.new(0,18))
     local outerStroke=Utility.Stroke(root,t.Stroke,0.18,1)
@@ -89,7 +116,14 @@ function Window.new(context,options)
     root.BackgroundTransparency=1
     Animation.Tween(root,{BackgroundTransparency=options.Acrylic==false and 0 or t.AcrylicTransparency},0.3)
 
-    local top=Utility.Create("Frame",{Name="TitleBar",Size=UDim2.new(1,0,0,66),BackgroundColor3=t.Surface,BackgroundTransparency=0.58,BorderSizePixel=0,Parent=root})
+    -- WINDOW CLIP: inner container que garante cantos perfeitos
+    local windowClip=Utility.Create("Frame",{
+        Name="WindowClip",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=true,Parent=root
+    })
+    Utility.Corner(windowClip,UDim.new(0,18))
+
+    -- TITLE BAR (Header) - dentro do clip, cantos arredondados via parent clip
+    local top=Utility.Create("Frame",{Name="TitleBar",Size=UDim2.new(1,0,0,HEADER_HEIGHT),BackgroundColor3=t.Surface,BackgroundTransparency=0.58,BorderSizePixel=0,Parent=windowClip})
     Utility.Create("Frame",{AnchorPoint=Vector2.new(0,1),Position=UDim2.fromScale(0,1),Size=UDim2.new(1,0,0,1),BackgroundColor3=t.Stroke,BackgroundTransparency=0.5,BorderSizePixel=0,Parent=top})
     local logo=Utility.Create("Frame",{Position=UDim2.fromOffset(20,16),Size=UDim2.fromOffset(34,34),BackgroundColor3=t.Primary,BorderSizePixel=0,Parent=top})
     Utility.Corner(logo,UDim.new(1,0))
@@ -110,7 +144,10 @@ function Window.new(context,options)
     topButton("□",-58,function() self:Maximize() end,t.Secondary)
     topButton("×",-16,function() self:Close() end,Color3.fromRGB(187,91,255))
 
-    local sidebar=Utility.Create("Frame",{Position=UDim2.fromOffset(0,66),Size=UDim2.new(0,88,1,-66),BackgroundColor3=t.Surface,BackgroundTransparency=0.64,BorderSizePixel=0,Parent=root})
+    -- BODY: CanvasGroup para fade controlado no minimize
+    local body=Utility.Create("CanvasGroup",{Name="Body",Position=UDim2.fromOffset(0,HEADER_HEIGHT),Size=UDim2.new(1,0,1,-HEADER_HEIGHT),BackgroundTransparency=1,BorderSizePixel=0,GroupTransparency=0,Parent=windowClip})
+
+    local sidebar=Utility.Create("Frame",{Position=UDim2.fromOffset(0,0),Size=UDim2.new(0,88,1,0),BackgroundColor3=t.Surface,BackgroundTransparency=0.64,BorderSizePixel=0,Parent=body})
     Utility.Create("Frame",{AnchorPoint=Vector2.new(1,0),Position=UDim2.fromScale(1,0),Size=UDim2.new(0,1,1,0),BackgroundColor3=t.Stroke,BackgroundTransparency=0.52,BorderSizePixel=0,Parent=sidebar})
     local tabList=Utility.Create("Frame",{Position=UDim2.fromOffset(15,18),Size=UDim2.new(1,-30,1,-92),BackgroundTransparency=1,Parent=sidebar})
     Utility.Create("UIListLayout",{Padding=UDim.new(0,9),HorizontalAlignment=Enum.HorizontalAlignment.Center,Parent=tabList})
@@ -119,26 +156,92 @@ function Window.new(context,options)
     local statusDot=Utility.Create("Frame",{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(14,14),BackgroundColor3=t.Primary,BorderSizePixel=0,Parent=status})
     Utility.Corner(statusDot,UDim.new(1,0)); Utility.Create("UIGradient",{Color=ColorSequence.new(t.Primary,t.Secondary),Rotation=45,Parent=statusDot})
 
-    local content=Utility.Create("Frame",{Position=UDim2.fromOffset(110,88),Size=UDim2.new(1,-132,1,-110),BackgroundTransparency=1,Parent=root})
-    self.Root=root; self.TitleBar=top; self.TabList=tabList; self.Content=content
-    self.OriginalSize=root.Size; self.OriginalPosition=root.Position
-    makeDraggable(root,top)
+    -- Content dentro do Body, com offset correto (22px abaixo do header)
+    local content=Utility.Create("Frame",{Position=UDim2.fromOffset(110,22),Size=UDim2.new(1,-132,1,-44),BackgroundTransparency=1,Parent=body})
 
-    local resize=Utility.Create("TextButton",{Name="ResizeHandle",AnchorPoint=Vector2.new(1,1),Position=UDim2.fromScale(1,1),Size=UDim2.fromOffset(28,28),BackgroundTransparency=1,Text="◢",TextColor3=t.TextMuted,TextSize=12,Parent=root})
+    self.Root=root
+    self.WindowClip=windowClip
+    self.TitleBar=top
+    self.Body=body
+    self.Sidebar=sidebar
+    self.TabList=tabList
+    self.Content=content
+    self.OriginalSize=root.Size
+    self.OriginalPosition=root.Position
+    self._WindowState.PreviousSize=root.Size
+    self._WindowState.PreviousPosition=root.Position
+    makeDraggable(self,root,top)
+
+    -- RESIZE HANDLE: completamente invisível, dentro do clip, sem artefato quadrado
+    -- Detecta mouse mas não mostra quadrado branco. Posicionado 4px dentro da borda para respeitar radius 18.
+    local resize=Utility.Create("TextButton",{
+        Name="ResizeHandle",
+        AnchorPoint=Vector2.new(1,1),
+        Position=UDim2.new(1,-4,1,-4),
+        Size=UDim2.fromOffset(20,20),
+        BackgroundTransparency=1,
+        BackgroundColor3=Color3.new(1,1,1),
+        BorderSizePixel=0,
+        AutoButtonColor=false,
+        Text="",
+        TextTransparency=1,
+        ZIndex=10,
+        Parent=windowClip
+    })
+    -- Indicador premium extremamente discreto (3 tracinhos diagonais com 92% transparência) — só aparece no hover
+    local grip=Utility.Create("Frame",{Name="GripVisual",AnchorPoint=Vector2.new(1,1),Position=UDim2.new(1,-2,1,-2),Size=UDim2.fromOffset(12,12),BackgroundTransparency=1,Parent=resize})
+    for i=1,3 do
+        local line=Utility.Create("Frame",{
+            Size=UDim2.new(1,0,0,1),
+            Position=UDim2.new(0,0,0,(i-1)*4),
+            BackgroundColor3=t.TextMuted,
+            BackgroundTransparency=0.92,
+            BorderSizePixel=0,
+            Parent=grip
+        })
+        Utility.Corner(line,UDim.new(1,0))
+        line.Rotation=45
+        line.AnchorPoint=Vector2.new(0.5,0.5)
+        line.Position=UDim2.new(0.5,0,0.5,(i-1)*4 -4)
+    end
+    grip.Visible=false
+    resize.MouseEnter:Connect(function() grip.Visible=true end)
+    resize.MouseLeave:Connect(function() grip.Visible=false end)
+
+    self.ResizeHandle=resize
+    self._GripVisual=grip
+
+    -- Resize logic centralizada, sem leak, respeitando estados e limites
     local resizing,resizeStart,sizeStart=false,nil,nil
-    resize.InputBegan:Connect(function(input)
-        if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then resizing=true; resizeStart=input.Position; sizeStart=root.AbsoluteSize end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if resizing and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then
-            local delta=input.Position-resizeStart
-            root.Size=UDim2.fromOffset(math.max(620,sizeStart.X+delta.X),math.max(400,sizeStart.Y+delta.Y))
-            self.OriginalSize=root.Size
+    local c1=resize.InputBegan:Connect(function(input)
+        if self._WindowState.Minimized or self._WindowState.Maximized then return end
+        if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+            resizing=true
+            resizeStart=input.Position
+            sizeStart=root.AbsoluteSize
         end
     end)
-    UserInputService.InputEnded:Connect(function(input)
+    local c2=UserInputService.InputChanged:Connect(function(input)
+        if not resizing then return end
+        if self._WindowState.Minimized or self._WindowState.Maximized then return end
+        if input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch then
+            local delta=input.Position-resizeStart
+            local viewport=getViewportSize()
+            local maxW=viewport.X-48
+            local maxH=viewport.Y-48
+            local newW=math.clamp(sizeStart.X+delta.X, MIN_WIDTH, maxW)
+            local newH=math.clamp(sizeStart.Y+delta.Y, MIN_HEIGHT, maxH)
+            root.Size=UDim2.fromOffset(newW,newH)
+            -- Não sobrescreve PreviousSize se estiver maximizado/minimizado; atualiza Original para compat
+            self.OriginalSize=root.Size
+            self._WindowState.PreviousSize=root.Size
+        end
+    end)
+    local c3=UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then resizing=false end
     end)
+    table.insert(self._Connections,c1); table.insert(self._Connections,c2); table.insert(self._Connections,c3)
+
     return self
 end
 
@@ -185,27 +288,171 @@ function Window:SelectTab(tab)
     self.ActiveTab=tab
 end
 
+-- Helpers internos para blur seguro
+function Window:_SetBlurEnabled(enabled)
+    if not self._Blur then return end
+    pcall(function()
+        if enabled then
+            Animation.Tween(self._Blur,{Size=2},0.28)
+        else
+            Animation.Tween(self._Blur,{Size=0},0.22)
+        end
+    end)
+end
+
+function Window:_DoMinimize()
+    if self._WindowState.IsAnimating then return end
+    self._WindowState.IsAnimating=true
+    -- Salva estado antes de minimizar (para MAXIMIZED->MINIMIZED->MAXIMIZED)
+    self._WindowState.PreviousSize=self.Root.Size
+    self._WindowState.PreviousPosition=self.Root.Position
+    self._WindowState.PreMinimizeMaximized=self._WindowState.Maximized
+    self._WindowState.Minimized=true
+    self.Minimized=true
+
+    -- Blur: desativa levemente quando minimizado (mantém premium sem borrar)
+    self:_SetBlurEnabled(false)
+
+    -- Fade body e esconde antes de animar altura
+    Animation.Tween(self.Body,{GroupTransparency=1},0.12)
+    task.delay(0.12,function()
+        if not self._WindowState.Minimized then return end
+        self.Body.Visible=false
+        self.ResizeHandle.Visible=false
+        if self._GripVisual then self._GripVisual.Visible=false end
+        -- Calcula tamanho minimizado: mesma largura, altura = HEADER
+        local prev=self._WindowState.PreviousSize
+        local minimizedSize=UDim2.new(prev.X.Scale, prev.X.Offset, 0, HEADER_HEIGHT)
+        Animation.Tween(self.Root,{Size=minimizedSize},TWEEN_MINIMIZE, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+        task.delay(TWEEN_MINIMIZE,function() self._WindowState.IsAnimating=false end)
+    end)
+end
+
+function Window:_DoRestoreFromMinimize()
+    if self._WindowState.IsAnimating then return end
+    self._WindowState.IsAnimating=true
+    self._WindowState.Minimized=false
+    self.Minimized=false
+
+    local targetSize=self._WindowState.PreviousSize or self.OriginalSize
+    local targetPos=self._WindowState.PreviousPosition or self.OriginalPosition
+    -- Se veio de maximizado, restaura para maximizado
+    if self._WindowState.PreMinimizeMaximized then
+        self._WindowState.Maximized=true
+        self.Maximized=true
+        targetSize=UDim2.new(1,-48,1,-48)
+        targetPos=UDim2.fromScale(0.5,0.5)
+        Animation.Tween(self.Root,{Size=targetSize,Position=targetPos},TWEEN_RESTORE)
+        task.delay(TWEEN_RESTORE,function()
+            self.Body.Visible=true
+            self.ResizeHandle.Visible=false -- continua invisível quando maximizado (sem resize)
+            Animation.Tween(self.Body,{GroupTransparency=0},0.16)
+            self:_SetBlurEnabled(true)
+            self._WindowState.IsAnimating=false
+        end)
+    else
+        self._WindowState.Maximized=false
+        self.Maximized=false
+        Animation.Tween(self.Root,{Size=targetSize,Position=targetPos},TWEEN_RESTORE, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+        task.delay(TWEEN_RESTORE,function()
+            self.Body.Visible=true
+            self.ResizeHandle.Visible=true
+            Animation.Tween(self.Body,{GroupTransparency=0},0.16)
+            self:_SetBlurEnabled(true)
+            self._WindowState.IsAnimating=false
+        end)
+    end
+    self.OriginalSize=targetSize
+    self.OriginalPosition=targetPos
+end
+
 function Window:Minimize()
-    self.Minimized=not self.Minimized
-    Animation.Tween(self.Root,{Size=self.Minimized and UDim2.fromOffset(self.Root.AbsoluteSize.X,66) or self.OriginalSize},0.3)
+    if self._IsDestroyed then return end
+    if self._WindowState.Minimized then
+        self:_DoRestoreFromMinimize()
+    else
+        -- Se maximizado, não faz tween direto para 66 com largura scale; o _DoMinimize já lida guardando PreMinimizeMaximized
+        self:_DoMinimize()
+    end
 end
 
 function Window:Maximize()
-    if self.Minimized then self:Minimize() end
-    self.Maximized=not self.Maximized
-    if self.Maximized then
-        self.OriginalSize=self.Root.Size; self.OriginalPosition=self.Root.Position
-        Animation.Tween(self.Root,{Position=UDim2.fromScale(0.5,0.5),Size=UDim2.new(1,-48,1,-48)},0.32)
+    if self._IsDestroyed then return end
+    if self._WindowState.IsAnimating then return end
+    -- Se minimizado, restaura primeiro (comportamento consistente) — mas spec permite MAXIMIZED->MINIMIZED->MAXIMIZED,
+    -- então se estiver minimizado e maximizado flag estava true, o Minimize já guardou. Aqui se estiver minimizado, tratamos como restore para maximizado
+    if self._WindowState.Minimized then
+        -- Minimizado -> Maximizar: restaura direto para maximizado sem passar por Normal
+        self:_DoRestoreFromMinimize()
+        -- Após restore, se ainda não maximizado e queremos maximizar, schedule
+        if not self._WindowState.Maximized then
+            task.delay(TWEEN_RESTORE+0.02,function() self:Maximize() end)
+        end
+        return
+    end
+
+    if self._WindowState.Maximized then
+        -- Restaurar
+        self._WindowState.IsAnimating=true
+        self._WindowState.Maximized=false
+        self.Maximized=false
+        local targetSize=self._WindowState.PreviousSize or self.OriginalSize
+        local targetPos=self._WindowState.PreviousPosition or self.OriginalPosition
+        Animation.Tween(self.Root,{Size=targetSize,Position=targetPos},TWEEN_MAXIMIZE, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+        task.delay(TWEEN_MAXIMIZE,function()
+            self.ResizeHandle.Visible=true
+            self._WindowState.IsAnimating=false
+            self.OriginalSize=targetSize
+            self.OriginalPosition=targetPos
+        end)
     else
-        Animation.Tween(self.Root,{Position=self.OriginalPosition,Size=self.OriginalSize},0.32)
+        -- Maximizar
+        self._WindowState.PreviousSize=self.Root.Size
+        self._WindowState.PreviousPosition=self.Root.Position
+        self._WindowState.IsAnimating=true
+        self._WindowState.Maximized=true
+        self.Maximized=true
+        -- Respeita viewport, não ultrapassa topbar: usa inset 48 e posição 0.5
+        local maxSize=UDim2.new(1,-48,1,-48)
+        local maxPos=UDim2.fromScale(0.5,0.5)
+        Animation.Tween(self.Root,{Size=maxSize,Position=maxPos},TWEEN_MAXIMIZE, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+        task.delay(TWEEN_MAXIMIZE,function()
+            self.ResizeHandle.Visible=false -- sem resize durante maximizado
+            self._WindowState.IsAnimating=false
+        end)
     end
 end
 
 function Window:Close()
+    if self._IsDestroyed then return end
+    if self._Blur then
+        Animation.Tween(self._Blur,{Size=0},0.18)
+        task.delay(0.20,function() if self._Blur then pcall(function() self._Blur:Destroy() end) self._Blur=nil end end)
+    end
     Animation.Tween(self.Root,{BackgroundTransparency=1,Size=UDim2.fromOffset(self.Root.AbsoluteSize.X*0.94,self.Root.AbsoluteSize.Y*0.94)},0.24)
-    task.delay(0.25,function() self.Root:Destroy() end)
+    task.delay(0.25,function() self:Destroy() end)
 end
 
 function Window:SetTheme(theme) self.Context.Theme:Apply(theme) end
-function Window:Destroy() self.Root:Destroy() end
+
+function Window:Destroy()
+    if self._IsDestroyed then return end
+    self._IsDestroyed=true
+    -- Desconecta tudo para evitar memory leak
+    for _,conn in ipairs(self._Connections) do
+        pcall(function() if conn and conn.Disconnect then conn:Disconnect() end end)
+    end
+    self._Connections={}
+    if self._Blur then pcall(function() self._Blur:Destroy() end) self._Blur=nil end
+    if self.Root then pcall(function() self.Root:Destroy() end) end
+    -- Remove da lista do Engine
+    if self.Context and self.Context.Windows then
+        for i,w in ipairs(self.Context.Windows) do
+            if w==self then table.remove(self.Context.Windows,i) break end
+        end
+    end
+    -- Limpa referências
+    self.Tabs={}
+    self.ActiveTab=nil
+end
 return Window
