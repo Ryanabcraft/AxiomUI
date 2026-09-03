@@ -10,11 +10,13 @@ return function(context, parent, options)
     local min, max = options.Min or 0, options.Max or 100
     local increment = options.Increment or 1
     local state = State.new(math.clamp(options.Default or min, min, max))
-    local row = Base.Row(context, parent, options, 68)
+    local row, label = Base.Row(context, parent, options, 68)
+    label.Size = UDim2.new(1, -114, 1, 0)
+    label.Position = UDim2.fromOffset(16, 0)
     local valueLabel = Utility.Create("TextLabel", {
         AnchorPoint = Vector2.new(1,0), Position = UDim2.new(1,-16,0,10), Size = UDim2.fromOffset(70,20),
         BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextColor3 = context.Theme.Current.TextMuted,
-        TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right, Parent = row,
+        TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right, TextTruncate = Enum.TextTruncate.AtEnd, ClipsDescendants = true, Parent = row,
     })
     local track = Utility.Create("Frame", {
         Position = UDim2.new(0,16,1,-20), Size = UDim2.new(1,-32,0,5), BackgroundColor3 = context.Theme.Current.SurfaceHover,

@@ -11,7 +11,7 @@ function Base.Row(context, parent, options, height)
     local row = Utility.Create("Frame", {
         Name = options.Name or "Component", Size = UDim2.new(1, 0, 0, height or 54),
         BackgroundColor3 = theme.SurfaceAlt, BackgroundTransparency = theme.Transparency,
-        BorderSizePixel = 0, Parent = parent,
+        BorderSizePixel = 0, ClipsDescendants = true, Parent = parent,
     })
     Utility.Corner(row, theme.Radius)
     context.Theme:Bind(row, "BackgroundColor3", "SurfaceAlt")
@@ -19,9 +19,10 @@ function Base.Row(context, parent, options, height)
     context.Theme:Bind(stroke, "Color", "Stroke")
     local label = Utility.Create("TextLabel", {
         Name = "Label", BackgroundTransparency = 1, Position = UDim2.fromOffset(16, 0),
-        Size = UDim2.new(0.62, -16, 1, 0), Font = Enum.Font.GothamMedium,
+        Size = UDim2.new(1, -96, 1, 0), Font = Enum.Font.GothamMedium,
         Text = options.Name or "Component", TextColor3 = theme.Text, TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left, Parent = row,
+        TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
+        ClipsDescendants = true, Parent = row,
     })
     context.Theme:Bind(label, "TextColor3", "Text")
     return row, label

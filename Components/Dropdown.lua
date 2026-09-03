@@ -10,16 +10,13 @@ return function(context, parent, options)
     local multi = options.Multi == true
     local initial = options.Default or (multi and {} or values[1])
     local state = State.new(initial)
-    local row,label = Base.Row(context,parent,options,54)
-    row.ClipsDescendants = true
-    label.Position = UDim2.fromOffset(16,0)
-    label.Size = UDim2.new(0.62,-16,0,54)
-    label.TextYAlignment = Enum.TextYAlignment.Center
+    local row, label = Base.Row(context,parent,options,54)
+    label.Size = UDim2.new(0.54, -40, 1, 0)
     local selector = Utility.Create("TextButton", {
         AnchorPoint=Vector2.new(1,0), Position=UDim2.new(1,-12,0,10), Size=UDim2.new(0.46,0,0,34),
         BackgroundColor3=context.Theme.Current.Background, BackgroundTransparency=0.2, BorderSizePixel=0,
         AutoButtonColor=false, Font=Enum.Font.Gotham, TextColor3=context.Theme.Current.TextMuted,
-        TextSize=12, TextTruncate=Enum.TextTruncate.AtEnd, Parent=row,
+        TextSize=12, TextTruncate=Enum.TextTruncate.AtEnd, ClipsDescendants = true, Parent=row,
     })
     Utility.Corner(selector,UDim.new(0,8)); Utility.Stroke(selector,context.Theme.Current.Stroke,0.55)
     local list = Utility.Create("Frame", { Position=UDim2.new(0,12,0,54), Size=UDim2.new(1,-24,0,0), BackgroundTransparency=1, Parent=row })

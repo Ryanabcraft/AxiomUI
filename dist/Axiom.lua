@@ -22,7 +22,7 @@ function Base.Row(context, parent, options, height)
     local row = Utility.Create("Frame", {
         Name = options.Name or "Component", Size = UDim2.new(1, 0, 0, height or 54),
         BackgroundColor3 = theme.SurfaceAlt, BackgroundTransparency = theme.Transparency,
-        BorderSizePixel = 0, Parent = parent,
+        BorderSizePixel = 0, ClipsDescendants = true, Parent = parent,
     })
     Utility.Corner(row, theme.Radius)
     context.Theme:Bind(row, "BackgroundColor3", "SurfaceAlt")
@@ -30,9 +30,10 @@ function Base.Row(context, parent, options, height)
     context.Theme:Bind(stroke, "Color", "Stroke")
     local label = Utility.Create("TextLabel", {
         Name = "Label", BackgroundTransparency = 1, Position = UDim2.fromOffset(16, 0),
-        Size = UDim2.new(0.62, -16, 1, 0), Font = Enum.Font.GothamMedium,
+        Size = UDim2.new(1, -96, 1, 0), Font = Enum.Font.GothamMedium,
         Text = options.Name or "Component", TextColor3 = theme.Text, TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left, Parent = row,
+        TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
+        ClipsDescendants = true, Parent = row,
     })
     context.Theme:Bind(label, "TextColor3", "Text")
     return row, label
@@ -128,12 +129,12 @@ return function(context,parent,options)
     local cleanup=Base.Cleanup()
     local state=State.new(options.Default or context.Theme.Current.Primary)
     local h,s,v=state:Get():ToHSV()
-    local row=Base.Row(context,parent,options,62)
-    row.ClipsDescendants=true
+    local row, label = Base.Row(context,parent,options,62)
+    label.Size = UDim2.new(1, -174, 1, 0)
     local open=false
-    local preview=Utility.Create("TextButton",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-12,0,14),Size=UDim2.fromOffset(34,34),BackgroundColor3=state:Get(),BorderSizePixel=0,Text="",AutoButtonColor=false,Parent=row})
+    local preview=Utility.Create("TextButton",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-12,0,14),Size=UDim2.fromOffset(34,34),BackgroundColor3=state:Get(),BorderSizePixel=0,Text="",AutoButtonColor=false,ClipsDescendants=true,Parent=row})
     Utility.Corner(preview,UDim.new(0,8)); Utility.Stroke(preview,Color3.new(1,1,1),0.75)
-    local hex=Utility.Create("TextBox",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-54,0,14),Size=UDim2.fromOffset(92,34),BackgroundColor3=context.Theme.Current.Background,BackgroundTransparency=0.2,BorderSizePixel=0,ClearTextOnFocus=false,Font=Enum.Font.Code,TextColor3=context.Theme.Current.Text,TextSize=12,Parent=row})
+    local hex=Utility.Create("TextBox",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-54,0,14),Size=UDim2.fromOffset(92,34),BackgroundColor3=context.Theme.Current.Background,BackgroundTransparency=0.2,BorderSizePixel=0,ClearTextOnFocus=false,Font=Enum.Font.Code,TextColor3=context.Theme.Current.Text,TextSize=12,ClipsDescendants=true,TextTruncate=Enum.TextTruncate.AtEnd,Parent=row})
     Utility.Corner(hex,UDim.new(0,8))
     local panel=Utility.Create("Frame",{Position=UDim2.fromOffset(12,64),Size=UDim2.new(1,-24,0,150),BackgroundTransparency=1,Parent=row})
     local sv=Utility.Create("Frame",{Size=UDim2.new(1,-54,0,112),BackgroundColor3=Color3.fromHSV(h,1,1),BorderSizePixel=0,ClipsDescendants=true,Parent=panel}); Utility.Corner(sv,UDim.new(0,8))
@@ -185,16 +186,13 @@ return function(context, parent, options)
     local multi = options.Multi == true
     local initial = options.Default or (multi and {} or values[1])
     local state = State.new(initial)
-    local row,label = Base.Row(context,parent,options,54)
-    row.ClipsDescendants = true
-    label.Position = UDim2.fromOffset(16,0)
-    label.Size = UDim2.new(0.62,-16,0,54)
-    label.TextYAlignment = Enum.TextYAlignment.Center
+    local row, label = Base.Row(context,parent,options,54)
+    label.Size = UDim2.new(0.54, -40, 1, 0)
     local selector = Utility.Create("TextButton", {
         AnchorPoint=Vector2.new(1,0), Position=UDim2.new(1,-12,0,10), Size=UDim2.new(0.46,0,0,34),
         BackgroundColor3=context.Theme.Current.Background, BackgroundTransparency=0.2, BorderSizePixel=0,
         AutoButtonColor=false, Font=Enum.Font.Gotham, TextColor3=context.Theme.Current.TextMuted,
-        TextSize=12, TextTruncate=Enum.TextTruncate.AtEnd, Parent=row,
+        TextSize=12, TextTruncate=Enum.TextTruncate.AtEnd, ClipsDescendants = true, Parent=row,
     })
     Utility.Corner(selector,UDim.new(0,8)); Utility.Stroke(selector,context.Theme.Current.Stroke,0.55)
     local list = Utility.Create("Frame", { Position=UDim2.new(0,12,0,54), Size=UDim2.new(1,-24,0,0), BackgroundTransparency=1, Parent=row })
@@ -237,13 +235,14 @@ return function(context, parent, options)
     options = options or {}
     local cleanup=Base.Cleanup()
     local state = State.new(options.Default or "")
-    local row = Base.Row(context, parent, options, 62)
+    local row, label = Base.Row(context, parent, options, 62)
+    label.Size = UDim2.new(0.54, -40, 1, 0)
     local box = Utility.Create("TextBox", {
         AnchorPoint=Vector2.new(1,0.5), Position=UDim2.new(1,-12,0.5,0), Size=UDim2.new(0.46,0,0,34),
         BackgroundColor3=context.Theme.Current.Background, BackgroundTransparency=0.25, BorderSizePixel=0,
         ClearTextOnFocus=false, Font=Enum.Font.Gotham, PlaceholderText=options.Placeholder or "Type here...",
         PlaceholderColor3=context.Theme.Current.TextMuted, Text=state:Get(), TextColor3=context.Theme.Current.Text,
-        TextSize=12, Parent=row,
+        TextSize=12, ClipsDescendants = true, TextTruncate = Enum.TextTruncate.AtEnd, Parent=row,
     })
     Utility.Corner(box, UDim.new(0,8)); Utility.Stroke(box,context.Theme.Current.Stroke,0.55)
     cleanup:Add(box.FocusLost:Connect(function(enterPressed)
@@ -268,8 +267,9 @@ local Base=__require("Components/Base")
 
 return function(context,parent,options)
     options=options or {}; local cleanup=Base.Cleanup(); local state=State.new(options.Default or Enum.KeyCode.Unknown); local listening=false
-    local row=Base.Row(context,parent,options,54)
-    local capture=Utility.Create("TextButton",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-12,0.5,0),Size=UDim2.fromOffset(94,32),BackgroundColor3=context.Theme.Current.Background,BackgroundTransparency=0.15,BorderSizePixel=0,AutoButtonColor=false,Font=Enum.Font.GothamMedium,TextColor3=context.Theme.Current.TextMuted,TextSize=11,Parent=row})
+    local row, label = Base.Row(context,parent,options,54)
+    label.Size = UDim2.new(1, -134, 1, 0)
+    local capture=Utility.Create("TextButton",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-12,0.5,0),Size=UDim2.fromOffset(94,32),BackgroundColor3=context.Theme.Current.Background,BackgroundTransparency=0.15,BorderSizePixel=0,AutoButtonColor=false,Font=Enum.Font.GothamMedium,TextColor3=context.Theme.Current.TextMuted,TextSize=11,TextTruncate=Enum.TextTruncate.AtEnd,ClipsDescendants=true,Parent=row})
     Utility.Corner(capture,UDim.new(0,8)); Utility.Stroke(capture,context.Theme.Current.Stroke,0.55)
     local function render(key) capture.Text=listening and "PRESS A KEY" or key.Name:upper() end
     cleanup:Add(capture.Activated:Connect(function() if cleanup:IsAlive() then listening=true; render(state:Get()) end end))
@@ -313,11 +313,13 @@ return function(context, parent, options)
     local min, max = options.Min or 0, options.Max or 100
     local increment = options.Increment or 1
     local state = State.new(math.clamp(options.Default or min, min, max))
-    local row = Base.Row(context, parent, options, 68)
+    local row, label = Base.Row(context, parent, options, 68)
+    label.Size = UDim2.new(1, -114, 1, 0)
+    label.Position = UDim2.fromOffset(16, 0)
     local valueLabel = Utility.Create("TextLabel", {
         AnchorPoint = Vector2.new(1,0), Position = UDim2.new(1,-16,0,10), Size = UDim2.fromOffset(70,20),
         BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextColor3 = context.Theme.Current.TextMuted,
-        TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right, Parent = row,
+        TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right, TextTruncate = Enum.TextTruncate.AtEnd, ClipsDescendants = true, Parent = row,
     })
     local track = Utility.Create("Frame", {
         Position = UDim2.new(0,16,1,-20), Size = UDim2.new(1,-32,0,5), BackgroundColor3 = context.Theme.Current.SurfaceHover,
@@ -359,7 +361,8 @@ return function(context, parent, options)
     local cleanup=Base.Cleanup()
     local theme = context.Theme.Current
     local state = State.new(options.Default == true)
-    local row = Base.Row(context, parent, options, 54)
+    local row, label = Base.Row(context, parent, options, 54)
+    label.Size = UDim2.new(1, -84, 1, 0)
     local button = Utility.Create("TextButton", {
         AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0), Size = UDim2.fromOffset(42, 24),
         BackgroundColor3 = theme.SurfaceHover, BorderSizePixel = 0, Text = "", AutoButtonColor = false, Parent = row,
@@ -1396,9 +1399,9 @@ function Window:AddTab(options)
         groupOptions=groupOptions or {}
         local gap=groupOptions.Gap or 12
         local ratio=groupOptions.Ratio or 0.62
-        local holder=Utility.Create("Frame",{Size=UDim2.new(1,-4,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,Parent=self.CurrentParent})
-        local left=Utility.Create("Frame",{Size=UDim2.new(ratio,-gap/2,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,Parent=holder})
-        local right=Utility.Create("Frame",{Size=UDim2.new(1-ratio,-gap/2,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,Parent=holder})
+        local holder=Utility.Create("Frame",{Size=UDim2.new(1,-4,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,ClipsDescendants=true,Parent=self.CurrentParent})
+        local left=Utility.Create("Frame",{Size=UDim2.new(ratio,-gap/2,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,ClipsDescendants=true,Parent=holder})
+        local right=Utility.Create("Frame",{Size=UDim2.new(1-ratio,-gap/2,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,ClipsDescendants=true,Parent=holder})
         local layout=Utility.Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,gap),VerticalAlignment=Enum.VerticalAlignment.Top,Parent=holder})
         Utility.Create("UIListLayout",{Padding=UDim.new(0,9),Parent=left})
         Utility.Create("UIListLayout",{Padding=UDim.new(0,9),Parent=right})

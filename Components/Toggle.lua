@@ -8,7 +8,8 @@ return function(context, parent, options)
     local cleanup=Base.Cleanup()
     local theme = context.Theme.Current
     local state = State.new(options.Default == true)
-    local row = Base.Row(context, parent, options, 54)
+    local row, label = Base.Row(context, parent, options, 54)
+    label.Size = UDim2.new(1, -84, 1, 0)
     local button = Utility.Create("TextButton", {
         AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0), Size = UDim2.fromOffset(42, 24),
         BackgroundColor3 = theme.SurfaceHover, BorderSizePixel = 0, Text = "", AutoButtonColor = false, Parent = row,
