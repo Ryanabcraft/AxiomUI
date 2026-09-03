@@ -2,7 +2,7 @@ local Axiom=loadstring(game:HttpGet("https://raw.githubusercontent.com/Ryanabcra
 
 local Window=Axiom:CreateWindow({
     Title="Axiom Control Center", Subtitle="PREMIUM INTERFACE · v1.0", Theme="Dark",
-    Acrylic=true, Blur=true, ReopenPill=true, Size=UDim2.fromOffset(780,510),
+    Acrylic=true, Blur=true, ReopenPill=true, Size=UDim2.fromOffset(820,510),
 })
 
 local Dashboard=Window:AddTab({Name="Dashboard",Icon="home"})
